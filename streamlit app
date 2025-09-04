@@ -1,0 +1,81 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+# Assume you've already trained + loaded:
+# vectorizer, mood_model, treatment_model, scaler
+
+from tensorflow.keras.models import load_model
+mood_model = load_model("mood_model.h5")
+treatment_model = load_model("treatment_model.h5")
+
+# Store session data
+if "mood_log" not in st.session_state:
+    st.session_state.mood_log = pd.DataFrame(columns=[
+        "entry_number", "timestamp", "text", "severity",
+        "prob_None", "prob_Mild", "prob_Moderate", "prob_Severe"
+    ])
+
+st.title("AI Mood & Treatment Prototype")
+
+# -------------------------------
+# Mood Recognition Section
+# -------------------------------
+st.header("📓 Daily Mood Journal")
+
+entry = st.text_area("How are you feeling today?")
+
+if st.button("Analyze Mood"):
+    X_sample = vectorizer.transform([entry])
+    pred_probs = mood_model.predict(X_sample.toarray())[0]
+    severity_label = ["None","Mild","Moderate","Severe"][pred_probs.argmax()]
+
+    # Log entry
+    new_entry = {
+        "entry_number": len(st.session_state.mood_log)+1,
+        "timestamp": datetime.now(),
+        "text": entry,
+        "severity": severity_label,
+        "prob_None": pred_probs[0],
+        "prob_Mild": pred_probs[1],
+        "prob_Moderate": pred_probs[2],
+        "prob_Severe": pred_probs[3]
+    }
+    st.session_state.mood_log = pd.concat(
+        [st.session_state.mood_log, pd.DataFrame([new_entry])],
+        ignore_index=True
+    )
+
+    st.success(f"Mood Prediction: **{severity_label}**")
+    st.bar_chart(pred_probs)
+
+# Plot mood over time
+if len(st.session_state.mood_log) > 0:
+    st.subheader("Mood Over Time")
+    df = st.session_state.mood_log
+    plt.plot(df["entry_number"], df["severity"].map({"None":0,"Mild":1,"Moderate":2,"Severe":3}), "o-")
+    plt.yticks([0,1,2,3], ["None","Mild","Moderate","Severe"])
+    plt.xlabel("Entry Number")
+    plt.ylabel("Severity")
+    st.pyplot(plt)
+
+# -------------------------------
+# Treatment Matching Section
+# -------------------------------
+st.header("💊 Treatment Matching")
+
+age = st.slider("Age", 18, 65, 30)
+severity = st.slider("Severity (1-9)", 1, 9, 5)
+sleep = st.selectbox("Sleep Issues?", [0,1])
+anxiety = st.selectbox("Anxiety?", [0,1])
+
+if st.button("Suggest Treatment"):
+    patient = scaler.transform([[age,severity,sleep,anxiety]])
+    treatment_pred = treatment_model.predict(patient)[0]
+
+    st.subheader("Treatment Recommendation")
+    treatments = ["SSRI","CBT","Combo"]
+    results = {treatments[i]: treatment_pred[i] for i in range(len(treatments))}
+    st.write(results)
+    st.bar_chart(results)

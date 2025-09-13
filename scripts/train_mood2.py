@@ -18,8 +18,9 @@ print("Loading data...")
 df = pd.read_csv("data/raw/rmhd_master.csv")  # update path if needed
 
 # --- Step 2: Create proxy labels ---
-depression_subs = ["depression", "SuicideWatch", "offmychest"]
-df["label"] = df["subreddit"].apply(lambda x: 1 if str(x).lower() in depression_subs else 0)
+depression_subs = ["depression", "SuicideWatch", "offmychest", "Anxiety", "bipolarreddit","alcoholism"]
+df["label"] = df["subreddit"].apply(lambda x: 1 if x.lower() in depression_subs else 0)
+print(df["label"].value_counts())
 
 X_text = df["post"].astype(str)
 y = df["label"].astype(int)

@@ -36,6 +36,10 @@ if st.button("Analyze mood"):
         #Vectorize and predict
         X = vectorizer.transform([entry])
         label = classifier.predict(X)[0]
+        if label == 0:
+            label_str = "this text does not suggest depressiion"
+        else:
+            label_str = "this text suggests depression"
         label_proba = classifier.predict_proba(X)[0]
 
         #save entry
@@ -49,7 +53,7 @@ if st.button("Analyze mood"):
 
         #display result
         st.subheader("Mood Prediction")
-        st.write(f"Predicted mood: **{label}")
+        st.write(f"Predicted mood: *{label_str}")
         st.write("Confidence:")
         for i, prob in enumerate(label_proba):
             st.write(f"- Class {i}: {prob:.2f}")

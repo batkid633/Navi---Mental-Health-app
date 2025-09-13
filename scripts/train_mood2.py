@@ -21,7 +21,7 @@ df = pd.read_csv("data/raw/rmhd_master.csv")  # update path if needed
 depression_subs = ["depression", "SuicideWatch", "offmychest"]
 df["label"] = df["subreddit"].apply(lambda x: 1 if str(x).lower() in depression_subs else 0)
 
-X_text = df["body"].astype(str)
+X_text = df["post"].astype(str)
 y = df["label"].astype(int)
 
 # --- Step 3: Train classifier ---

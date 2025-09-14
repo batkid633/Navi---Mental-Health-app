@@ -50,7 +50,8 @@ if st.button("Analyze mood"):
         new_row={
             "timestamp":datetime.now().strftime("%Y-%m-%d %H:%M"),
             "entry": entry,
-            "predicted_label": label
+            "predicted_label": label,
+            "depression_probability" : probs
         }
         journal_df = pd.concat([journal_df, pd.DataFrame([new_row])],ignore_index=True)
         journal_df.to_csv(LOG_FILE,index=False)
@@ -67,8 +68,8 @@ if st.button("Analyze mood"):
 # ------------- Show Past entries -------------------
 st.subheader("Mood history")
 if len(journal_df) > 0:
-    st.dataframe(journal_df[["timestamp","entry","predicted_label"]])
-    st.line_chart(journal_df.set_index("timestamp")["predicted_label"].astype("category").cat.codes)
+    st.dataframe(journal_df[["timestamp","entry","predicted_label","depression_probability"]])
+    st.line_chart(journal_df.set_index("timestamp")["depression_probability"].astype("category").cat.codes)
 
 # ----------------- Treatment Panel -----------------
 st.header("💊 Treatment Matching")

@@ -44,6 +44,38 @@ print(classification_report(y_test, y_pred))
 # Depression probability scores
 probs = clf.predict_proba(X_test_vec)[:, 1]
 
+
+##TEST SECTION
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve, auc
+
+# --- ROC Curve ---
+fpr, tpr, roc_thresholds = roc_curve(y_test, probs)
+roc_auc = roc_auc_score(y_test, probs)
+
+plt.figure(figsize=(7, 5))
+plt.plot(fpr, tpr, label=f"ROC curve (AUC = {roc_auc:.2f})")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate (Recall)")
+plt.title("ROC Curve")
+plt.legend()
+plt.show()
+
+# --- Precision-Recall Curve ---
+prec, rec, pr_thresholds = precision_recall_curve(y_test, probs)
+pr_auc = auc(rec, prec)
+
+plt.figure(figsize=(7, 5))
+plt.plot(rec, prec, label=f"PR curve (AUC = {pr_auc:.2f})")
+plt.xlabel("Recall")
+plt.ylabel("Precision")
+plt.title("Precision-Recall Curve")
+plt.legend()
+plt.show()
+
+##END TEST SECTION
+
 # --- Step 4: Sentiment analysis ---
 print("Adding sentiment scores...")
 nltk.download("vader_lexicon")

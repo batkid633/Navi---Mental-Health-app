@@ -36,20 +36,15 @@ X_test_vec = vectorizer.transform(X_test)
 clf = LogisticRegression(class_weight="balanced",max_iter=1000)
 clf.fit(X_train_vec, y_train)
 
-# ---- Evaluate with default 0.5 threshold ----
-y_pred_default = clf.predict(X_test_vec)
-print("Classification Report (default 0.5 threshold):")
-print(classification_report(y_test, y_pred_default))
-
 # ---- Probabilities ----
 y_probs = clf.predict_proba(X_test_vec)[:, 1]
 
 # ---- Custom threshold ----
-threshold = 0.7  # try different values!
-y_pred_custom = (y_probs >= threshold).astype(int)
+threshold = 0.855 
+y_pred = (y_probs >= threshold).astype(int)
 
 print(f"\nClassification Report (custom threshold={threshold}):")
-print(classification_report(y_test, y_pred_custom))
+print(classification_report(y_test, y_pred))
 
 # Depression probability scores
 probs = clf.predict_proba(X_test_vec)[:, 1]
@@ -70,12 +65,8 @@ plt.xlabel("Threshold")
 plt.ylabel("Score")
 plt.title("Precision & Recall vs Threshold")
 plt.legend()
-
-plt.show()
 plt.savefig("data/processed/Recall v Precision.png")
 plt.show()
-
-##END TEST SECTION
 
 # --- Step 4: Sentiment analysis ---
 print("Adding sentiment scores...")
@@ -99,14 +90,6 @@ df_results = pd.DataFrame({
 
 df_results = df_results.reset_index(drop=True)
 df_results["entry_number"] = df_results.index  # simulate timeline
-
-# Plot mood score trajectory
-plt.plot(df_results["entry_number"], df_results["mood_score"], marker="o")
-plt.xlabel("Entry number")
-plt.ylabel("Mood score (0=positive, 1=depressed)")
-plt.title("Mood trajectory over time (Hybrid Score)")
-plt.savefig("data/processed/mood_trajectory.png")
-plt.show()
 
 # --- Step 7: Save model + vectorizer for later use ---
 print("Saving model and vectorizer...")

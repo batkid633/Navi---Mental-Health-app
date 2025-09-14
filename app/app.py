@@ -35,7 +35,11 @@ if st.button("Analyze mood"):
     if entry.strip():
         #Vectorize and predict
         X = vectorizer.transform([entry])
-        label = classifier.predict(X)[0]
+        # Get probability for "depressed" (class 1)
+        probs = classifier.predict_proba(X)[0][1]
+        # Apply custom threshold
+        threshold = 0.855 # based on train_mood graph in data/processed
+        label = 1 if probs >= threshold else 0
         if label == 0:
             label_str = "this text does not suggest depressiion"
         else:

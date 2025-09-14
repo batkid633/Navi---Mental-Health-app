@@ -24,7 +24,7 @@ os.makedirs("data", exist_ok=True)
 if os.path.exists(LOG_FILE):
     journal_df = pd.read_csv(LOG_FILE)
 else:
-    journal_df = pd.DataFrame(columns=["timestamp","entry","predicted_label"])
+    journal_df = pd.DataFrame(columns=["timestamp","entry","predicted_label","depression_probability"])
 
 #---------------- Sreamlit UI -----------------
 st.header("Mood Journal")

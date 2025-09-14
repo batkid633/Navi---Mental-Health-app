@@ -18,7 +18,7 @@ else:
     st.stop()
 
 #----- Set up local storage for journal entries ----
-LOG_FILE = "data/jounral_log.csv"
+LOG_FILE = "data/journal_log.csv"
 os.makedirs("data", exist_ok=True)
 
 if os.path.exists(LOG_FILE):

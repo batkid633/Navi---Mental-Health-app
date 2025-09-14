@@ -36,42 +36,43 @@ X_test_vec = vectorizer.transform(X_test)
 clf = LogisticRegression(class_weight="balanced",max_iter=1000)
 clf.fit(X_train_vec, y_train)
 
-# Evaluate
-y_pred = clf.predict(X_test_vec)
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
+# ---- Evaluate with default 0.5 threshold ----
+y_pred_default = clf.predict(X_test_vec)
+print("Classification Report (default 0.5 threshold):")
+print(classification_report(y_test, y_pred_default))
+
+# ---- Probabilities ----
+y_probs = clf.predict_proba(X_test_vec)[:, 1]
+
+# ---- Custom threshold ----
+threshold = 0.7  # try different values!
+y_pred_custom = (y_probs >= threshold).astype(int)
+
+print(f"\nClassification Report (custom threshold={threshold}):")
+print(classification_report(y_test, y_pred_custom))
 
 # Depression probability scores
 probs = clf.predict_proba(X_test_vec)[:, 1]
-
 
 ##TEST SECTION
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve, auc
 
-# --- ROC Curve ---
-fpr, tpr, roc_thresholds = roc_curve(y_test, probs)
-roc_auc = roc_auc_score(y_test, probs)
-
-plt.figure(figsize=(7, 5))
-plt.plot(fpr, tpr, label=f"ROC curve (AUC = {roc_auc:.2f})")
-plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate (Recall)")
-plt.title("ROC Curve")
-plt.legend()
-plt.show()
-
 # --- Precision-Recall Curve ---
 prec, rec, pr_thresholds = precision_recall_curve(y_test, probs)
 pr_auc = auc(rec, prec)
 
-plt.figure(figsize=(7, 5))
-plt.plot(rec, prec, label=f"PR curve (AUC = {pr_auc:.2f})")
-plt.xlabel("Recall")
-plt.ylabel("Precision")
-plt.title("Precision-Recall Curve")
+plt.subplot(1,2,2)
+plt.plot(pr_thresholds, prec[:-1], label="Precision")
+plt.plot(pr_thresholds, rec[:-1], label="Recall")
+plt.axvline(threshold, color="red", linestyle="--", label=f"Chosen threshold={threshold}")
+plt.xlabel("Threshold")
+plt.ylabel("Score")
+plt.title("Precision & Recall vs Threshold")
 plt.legend()
+
+plt.show()
+plt.savefig("data/processed/Recall v Precision.png")
 plt.show()
 
 ##END TEST SECTION

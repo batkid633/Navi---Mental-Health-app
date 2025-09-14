@@ -41,7 +41,7 @@ if st.button("Analyze mood"):
         threshold = 0.855 # based on train_mood graph in data/processed
         label = 1 if probs >= threshold else 0
         if label == 0:
-            label_str = "this text does not suggest depressiion"
+            label_str = "this text does not suggest depression"
         else:
             label_str = "this text suggests depression"
         label_proba = classifier.predict_proba(X)[0]

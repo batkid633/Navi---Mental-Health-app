@@ -87,3 +87,19 @@ if st.button("Suggest Treatment"):
     result = pd.Series({trt_classes[i]: float(p[i]) for i in range(len(trt_classes))}).sort_values(ascending=False)
     st.success(f"Top recommendation: **{labels[0]}**")
     st.bar_chart(result)
+
+# ---------- Incoming Features ------------
+st.header("Upcoming Features")
+st.markdown(
+    """
+    **Typing/Keyboard Tracker (Planned)**  
+    ⌨️ Subtle analysis of typing speed, error rate, and rhythm to detect mood shifts.  
+    ---
+
+    **Wearable Fitness Tracker Data (In Development)**  
+    ⌚ Integration with Apple Health, Fitbit, Garmin, etc. to monitor sleep, HRV, and activity.  
+    ---
+
+    **Audio Environment Tracker (Exploring)**  
+    🎤 With permission, analyze background noise, speech tone, and vocal energy for early depression/anxiety insights.  
+    """)

@@ -18,6 +18,7 @@ print("Loading data...")
 df = pd.read_csv("data/raw/rmhd_master.csv")  # update path if needed
 
 # --- Step 2: Create proxy labels ---
+print("Labeling the dataset...")
 depression_subs = ["depression", "SuicideWatch", "offmychest", "Anxiety", "bipolarreddit","alcoholism"]
 df["label"] = df["subreddit"].apply(lambda x: 1 if x.lower() in depression_subs else 0)
 print(df["label"].value_counts())
@@ -99,4 +100,4 @@ with open("models/mood_classifier.pkl", "wb") as f:
 with open("models/mood_vectorizer.pkl", "wb") as f:
     pickle.dump(vectorizer, f)
 
-print("✅ Training complete. Model, vectorizer, and plot saved.")
+print("Training complete. Model, vectorizer, and plot saved.")

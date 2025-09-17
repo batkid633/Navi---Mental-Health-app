@@ -120,4 +120,7 @@ st.markdown(
     
     **Audio Environment Tracker**  
     🎤 Analyze background noise, speech tone, and vocal energy for early depression/anxiety insights.  
+
+    **LLM Therapy Chat Bot**
+    🤖 Therapy chat bot that would serve as a stand-in for a therapist and help orchestrate therapy appointments
     """)

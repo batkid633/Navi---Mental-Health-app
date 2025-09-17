@@ -35,84 +35,91 @@ else:
     journal_df = pd.DataFrame(columns=["timestamp","entry","predicted_label","depression_probability"])
 
 #---------------- Sreamlit UI -----------------
-st.header("Mood Journal")
-st.write("Log your daily jounral entry and track mood predictions over time")
+col1, col2 = st.columns(2)
 
-entry = st.text_area("Write your journal entry here:",height=150)
-if st.button("Analyze mood"):
-    if entry.strip():
-        #Vectorize and predict
-        X = vectorizer.transform([entry])
-        # Get probability for "depressed" (class 1)
-        probs = classifier.predict_proba(X)[0][1]
-        # Apply custom threshold
-        threshold = 0.855 # based on train_mood graph in data/processed
-        label = 1 if probs >= threshold else 0
-        if label == 0:
-            label_str = "this text does not suggest depression"
+with col1:
+        
+    st.header("Mood Journal")
+    st.write("Log your daily jounral entry and track mood predictions over time")
+    
+    entry = st.text_area("Write your journal entry here:",height=150)
+    if st.button("Analyze mood"):
+        if entry.strip():
+            #Vectorize and predict
+            X = vectorizer.transform([entry])
+            # Get probability for "depressed" (class 1)
+            probs = classifier.predict_proba(X)[0][1]
+            # Apply custom threshold
+            threshold = 0.855 # based on train_mood graph in data/processed
+            label = 1 if probs >= threshold else 0
+            if label == 0:
+                label_str = "this text does not suggest depression"
+            else:
+                label_str = "this text suggests depression"
+            label_proba = classifier.predict_proba(X)[0]
+    
+            #save entry
+            new_row={
+                "timestamp":datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "entry": entry,
+                "predicted_label": label,
+                "depression_probability" : probs
+            }
+            journal_df = pd.concat([journal_df, pd.DataFrame([new_row])],ignore_index=True)
+            journal_df.to_csv(LOG_FILE,index=False)
+    
+            #display result
+            st.subheader("Mood Prediction")
+            st.write(f"Predicted mood: *{label_str}")
+            st.write("Confidence:")
+            for i, prob in enumerate(label_proba):
+                st.write(f"- Class {i}: {prob:.2f}")
         else:
-            label_str = "this text suggests depression"
-        label_proba = classifier.predict_proba(X)[0]
-
-        #save entry
-        new_row={
-            "timestamp":datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "entry": entry,
-            "predicted_label": label,
-            "depression_probability" : probs
-        }
-        journal_df = pd.concat([journal_df, pd.DataFrame([new_row])],ignore_index=True)
-        journal_df.to_csv(LOG_FILE,index=False)
-
-        #display result
-        st.subheader("Mood Prediction")
-        st.write(f"Predicted mood: *{label_str}")
-        st.write("Confidence:")
-        for i, prob in enumerate(label_proba):
-            st.write(f"- Class {i}: {prob:.2f}")
-    else:
-        st.warning("Please type something before analyzing.")
+            st.warning("Please type something before analyzing.")
 
 # ------------- Show Past entries -------------------
-st.subheader("Mood history")
-if len(journal_df) > 0:
-    st.dataframe(journal_df[["timestamp","entry","predicted_label","depression_probability"]])
-    st.line_chart(journal_df.set_index("timestamp")["depression_probability"])
+    st.subheader("Mood history")
+    if len(journal_df) > 0:
+        st.dataframe(journal_df[["timestamp","entry","predicted_label","depression_probability"]])
+        st.line_chart(journal_df.set_index("timestamp")["depression_probability"])
 
 # ----------------- Treatment Panel -----------------
-st.header("💊 Treatment Matching")
-st.subheader("Patient Information")
-
-age = st.slider("Age", 18, 80, 30)
-anxiety_score = st.slider("Anxiety Score", 0, 10, 5)
-sleep_hours = st.slider("Sleep Hours", 0, 12, 7)
-exercise_hours = st.slider("Weekly Fitness Hours", 0, 15, 3)
-
-if st.button("Predict Treatment Plan"):
-    # Package inputs
-    X_input = pd.DataFrame([{
-        "depression_score" = probs,
-        "age": age,
-        "anxiety_score": anxiety_score,
-        "sleep_hours": sleep_hours,
-        "exercise_hours": exercise_hours
-    }])
+with col2:
+        
+    st.header("💊 Treatment Matching")
+    st.subheader("Patient Information")
     
-    treatment_pred = treatment_model.predict(X_input)[0]
-    st.success(f"Recommended treatment plan: **{treatment_pred}**")
+    age = st.slider("Age", 18, 80, 30)
+    anxiety_score = st.slider("Anxiety Score", 0, 10, 5)
+    sleep_hours = st.slider("Sleep Hours", 0, 12, 7)
+    exercise_hours = st.slider("Weekly Fitness Hours", 0, 15, 3)
+    
+    if st.button("Predict Treatment Plan"):
+        # Package inputs
+        X_input = pd.DataFrame([{
+            "depression_score" = probs,
+            "age": age,
+            "anxiety_score": anxiety_score,
+            "sleep_hours": sleep_hours,
+            "exercise_hours": exercise_hours
+        }])
+        
+        treatment_pred = treatment_model.predict(X_input)[0]
+        st.success(f"Recommended treatment plan: **{treatment_pred}**")
 
 # ---------- Incoming Features ------------
-st.header("Upcoming Features")
+st.markdown("---")
+st.subheader("Upcoming Features")
 st.markdown(
     """
-    **Typing/Keyboard Tracker (Planned)**  
-    ⌨️ Subtle analysis of typing speed, error rate, and rhythm to detect mood shifts.  
+    **Typing/Keyboard Tracker**  
+    ⌨️ Analysis of typing speed, error rate, and rhythm to detect mood shifts  
     ---
 
-    **Wearable Fitness Tracker Data (In Development)**  
+    **Wearable Fitness Tracker Data**  
     ⌚ Integration with Apple Health, Fitbit, Garmin, etc. to monitor sleep, HRV, and activity.  
     ---
 
-    **Audio Environment Tracker (Exploring)**  
-    🎤 With permission, analyze background noise, speech tone, and vocal energy for early depression/anxiety insights.  
+    **Audio Environment Tracker**  
+    🎤 Analyze background noise, speech tone, and vocal energy for early depression/anxiety insights.  
     """)

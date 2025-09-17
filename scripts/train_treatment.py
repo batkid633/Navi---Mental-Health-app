@@ -19,7 +19,6 @@ data = {
     "sleep_hours": np.random.normal(7, 1.5, n_samples).clip(3, 10),
     "exercise_hours": np.random.normal(3, 1.0, n_samples).clip(0, 10),
     "age": np.random.randint(18, 70, n_samples),
-    "comorbidities": np.random.randint(0, 3, n_samples),
 }
 
 df = pd.DataFrame(data)

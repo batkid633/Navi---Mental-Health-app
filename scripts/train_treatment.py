@@ -15,7 +15,7 @@ n_samples = 1000
 
 data = {
     "depression_score": np.random.rand(n_samples),
-    "anxiety_score": np.random.int(1, 10, n_samples),
+    "anxiety_score": np.random.randint(1, 10, n_samples),
     "sleep_hours": np.random.normal(7, 1.5, n_samples).clip(3, 10),
     "exercise_hours": np.random.normal(3, 1.0, n_samples).clip(0, 10),
     "age": np.random.randint(18, 70, n_samples),

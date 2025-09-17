@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import joblib
 import seaborn as sns
+import matplotlib.pyplot as plt
 
 # ---- 1. Create a fake dataset ----
 print("Creating fake dataset to simulate the STAR*D dataset")

@@ -84,19 +84,18 @@ st.header("💊 Treatment Matching")
 st.subheader("Patient Information")
 
 age = st.slider("Age", 18, 80, 30)
-weight = st.slider("Weight (lbs)", 100, 300, 180)
-anxiety = st.slider("Anxiety Score", 0, 10, 5)
-sleep = st.slider("Sleep Hours", 0, 12, 7)
-fitness = st.slider("Weekly Fitness Hours", 0, 15, 3)
+anxiety_score = st.slider("Anxiety Score", 0, 10, 5)
+sleep_hours = st.slider("Sleep Hours", 0, 12, 7)
+exercise_hours = st.slider("Weekly Fitness Hours", 0, 15, 3)
 
 if st.button("Predict Treatment Plan"):
     # Package inputs
     X_input = pd.DataFrame([{
+        "depression_score" = probs,
         "age": age,
-        "weight": weight,
-        "anxiety": anxiety,
-        "sleep": sleep,
-        "fitness": fitness
+        "anxiety_score": anxiety_score,
+        "sleep_hours": sleep_hours,
+        "exercise_hours": exercise_hours
     }])
     
     treatment_pred = treatment_model.predict(X_input)[0]

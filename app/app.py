@@ -97,7 +97,7 @@ with col2:
     if st.button("Predict Treatment Plan"):
         # Package inputs
         X_input = pd.DataFrame([{
-            "depression_score" = probs,
+            "depression_score": probs,
             "age": age,
             "anxiety_score": anxiety_score,
             "sleep_hours": sleep_hours,

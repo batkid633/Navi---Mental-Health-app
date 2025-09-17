@@ -17,6 +17,15 @@ else:
     st.error("No trained models found. Please run train_mood.py first.")
     st.stop()
 
+treatment_model_PATH = "models/treatment_model.pkl"
+
+if os.path.exists(treatment_model_PATH):
+    with open(treatment_model_PATH, "rb") as f:
+        treatment_classifier = pickle.load(f)
+else:
+    st.error("No trained models found. Please run train_treatment.py first.")
+    st.stop()
+
 #----- Set up local storage for journal entries ----
 LOG_FILE = "data/journal_log.csv"
 os.makedirs("data", exist_ok=True)
@@ -73,20 +82,26 @@ if len(journal_df) > 0:
 
 # ----------------- Treatment Panel -----------------
 st.header("💊 Treatment Matching")
-col1,col2 = st.columns(2)
-with col1:
-    age = st.slider("Age", 18, 80, 35)
-    severity_1to9 = st.slider("Baseline severity (1–9)", 1, 9, 5)
-with col2:
-    sleep_issues = st.selectbox("Sleep Issues", [0,1], index=0)
-    anxiety = st.selectbox("Anxiety Comorbidity", [0,1], index=0)
+st.subheader("Patient Information")
 
-if st.button("Suggest Treatment"):
-    probs, labels = predict_treatment([[age, severity_1to9, sleep_issues, anxiety]], trt_model, scaler, trt_classes)
-    p = probs[0]
-    result = pd.Series({trt_classes[i]: float(p[i]) for i in range(len(trt_classes))}).sort_values(ascending=False)
-    st.success(f"Top recommendation: **{labels[0]}**")
-    st.bar_chart(result)
+age = st.slider("Age", 18, 80, 30)
+weight = st.slider("Weight (lbs)", 100, 300, 180)
+anxiety = st.slider("Anxiety Score", 0, 10, 5)
+sleep = st.slider("Sleep Hours", 0, 12, 7)
+fitness = st.slider("Weekly Fitness Hours", 0, 15, 3)
+
+if st.button("Predict Treatment Plan"):
+    # Package inputs
+    X_input = pd.DataFrame([{
+        "age": age,
+        "weight": weight,
+        "anxiety": anxiety,
+        "sleep": sleep,
+        "fitness": fitness
+    }])
+    
+    treatment_pred = treatment_model.predict(X_input)[0]
+    st.success(f"Recommended treatment plan: **{treatment_pred}**")
 
 # ---------- Incoming Features ------------
 st.header("Upcoming Features")

@@ -79,9 +79,11 @@ with col1:
 
 # ------------- Show Past entries -------------------
     st.subheader("Mood history")
+    threshold = 0.855
+    journal_df["threshold"] = threshold
     if len(journal_df) > 0:
         st.dataframe(journal_df[["timestamp","entry","predicted_label","depression_probability"]])
-        st.line_chart(journal_df.set_index("timestamp")["depression_probability"])
+        st.line_chart(journal_df.set_index("timestamp")["depression_probability","threshold"])
 
 # ----------------- Treatment Panel -----------------
 with col2:

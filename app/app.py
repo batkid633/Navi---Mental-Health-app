@@ -97,10 +97,10 @@ if st.button("Predict Treatment Plan"):
     # Package inputs
     X_input = pd.DataFrame([{
         "depression_score": probs,
-        "age": age,
         "anxiety_score": anxiety_score,
         "sleep_hours": sleep_hours,
-        "exercise_hours": exercise_hours
+        "exercise_hours": exercise_hours,
+        "age": age,
     }])
     
     treatment_pred = treatment_model.predict(X_input)[0]

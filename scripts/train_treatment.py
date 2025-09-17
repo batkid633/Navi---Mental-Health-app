@@ -15,7 +15,7 @@ n_samples = 1000
 
 data = {
     "depression_score": np.random.rand(n_samples),
-    "anxiety_score": np.random.rand(n_samples),
+    "anxiety_score": np.random.int(1, 10, n_samples),
     "sleep_hours": np.random.normal(7, 1.5, n_samples).clip(3, 10),
     "exercise_hours": np.random.normal(3, 1.0, n_samples).clip(0, 10),
     "age": np.random.randint(18, 70, n_samples),
@@ -27,7 +27,7 @@ df = pd.DataFrame(data)
 # ---- 2. Fake treatment label (simple rules for demo) ----
 conditions = []
 for i, row in df.iterrows():
-    if row["depression_score"] > 0.7 and row["anxiety_score"] > 0.6:
+    if row["depression_score"] > 0.7 and row["anxiety_score"] > 6:
         conditions.append("medication")
     elif row["depression_score"] > 0.5:
         conditions.append("therapy")

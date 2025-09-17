@@ -45,6 +45,7 @@ if st.button("Analyze mood"):
         X = vectorizer.transform([entry])
         # Get probability for "depressed" (class 1)
         probs = classifier.predict_proba(X)[0][1]
+        st.session_state["probability"] = probs
         # Apply custom threshold
         threshold = 0.855 # based on train_mood graph in data/processed
         label = 1 if probs >= threshold else 0
@@ -86,6 +87,7 @@ if len(journal_df) > 0:
 st.header("💊 Treatment Matching")
 st.subheader("Patient Information")
 
+probs = st.session_state.get("probability", 0.0)
 age = st.slider("Age", 18, 80, 30)
 anxiety_score = st.slider("Anxiety Score", 0, 10, 5)
 sleep_hours = st.slider("Sleep Hours", 0, 12, 7)

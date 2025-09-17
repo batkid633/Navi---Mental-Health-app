@@ -20,8 +20,7 @@ else:
 treatment_model_PATH = "models/treatment_model.pkl"
 
 if os.path.exists(treatment_model_PATH):
-    with open(treatment_model_PATH, "rb") as f:
-        treatment_classifier = pickle.load(f)
+    treatment_model = joblib.load("models/treatment_model.pkl")
 else:
     st.error("No trained models found. Please run train_treatment.py first.")
     st.stop()

@@ -36,7 +36,10 @@ print("Training audio model...")
 
 # Example: simulate audio features (replace with librosa MFCCs for real data)
 # For demo, we'll just use random features
-X_audio = np.random.rand(len(labels), 13)  # 13 MFCCs typically
+X_audio = np.random.rand(len(labels), 13)  # 13 MFCCs typically - REPLACE WITH CODE ON 3 LINES BELOW
+# y, sr = librosa.load("path_to_audio.wav", sr=16000)
+# mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+# mfccs_mean = np.mean(mfccs, axis=1)
 y_audio = labels
 
 audio_model = RandomForestClassifier()

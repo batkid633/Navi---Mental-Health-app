@@ -34,8 +34,7 @@ if st.button("Analyze mood"):
         journal_df.to_csv(LOG_FILE,index=False)
 
   # Send data to FastAPI backend
-  ## Fix here
-        url = "http://127.0.0.1:8000/predict_text_physio"
+        url = "http://127.0.0.1:8000/predict/"
         payload = {
             "journal_entry": journal_entry,
             "age": age,

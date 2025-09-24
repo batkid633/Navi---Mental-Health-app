@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
+import os
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -93,6 +94,7 @@ df_results = df_results.reset_index(drop=True)
 df_results["entry_number"] = df_results.index  # simulate timeline
 
 # --- Step 7: Save model + vectorizer for later use ---
+os.makedirs("models", exist_ok=true)
 print("Saving model and vectorizer...")
 with open("models/mood_classifier.pkl", "wb") as f:
     pickle.dump(clf, f)

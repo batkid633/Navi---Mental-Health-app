@@ -1,42 +1,58 @@
-# backend.py
-from fastapi import FastAPI
+# # filename: main.py
+from fastapi import FastAPI, File, UploadFile, Form
 from pydantic import BaseModel
-import random
-import joblib
+import pickle
+import numpy as np
+import uvicorn
 
 app = FastAPI()
 
-# Define what data the API will expect
-class TextPhysioInput(BaseModel):
-    journal_entry: str
-    age: int
-    sleep_hours: float
-    avg_heart_rate: int
-    steps: int
-    anxiety_score: int  # slider 1–10
+# Load models/vectorizers once
+with open("text_vectorizer.pkl", "rb") as f:
+    text_vectorizer = pickle.load(f)
 
-@app.get("/")
-def root():
-    return {"message": "Backend API is running!"}
+with open("text_model.pkl", "rb") as f:
+    text_model = pickle.load(f)
 
-@app.post("/predict_text_physio")
-def predict_text_physio(data: TextPhysioInput):
-    # For MVP demo, generate a dummy score
-    # Later → plug in trained model
-    
-    treatment_model_PATH = "models/treatment_model.pkl"
-    if os.path.exists(treatment_model_PATH):
-        treatment_model = joblib.load("models/treatment_model.pkl")
-    else:
-        print("No trained models found")
-        
-    dummy_score = round(random.uniform(0, 1), 3)
+with open("audio_model.pkl", "rb") as f:
+    audio_model = pickle.load(f)
+
+with open("physio_model.pkl", "rb") as f:
+    physio_model = pickle.load(f)
+
+@app.post("/predict/")
+async def predict(
+    journal_entry: str = Form(...),
+    heart_rate: float = Form(...),
+    sleep_hours: float = Form(...),
+    audio_file: UploadFile = File(None)
+):
+    # 1. Text preprocessing
+    text_features = text_vectorizer.transform([journal_entry])
+    text_pred = text_model.predict_proba(text_features)[0][1]
+
+    # 2. Physio features
+    physio_features = np.array([[heart_rate, sleep_hours]])
+    physio_pred = physio_model.predict_proba(physio_features)[0][1]
+
+    # 3. Audio features (placeholder for now)
+    audio_pred = 0.0
+    if audio_file is not None:
+        contents = await audio_file.read()
+        # TODO: preprocess into MFCC or embeddings
+        # audio_features = preprocess_audio(contents)
+        # audio_pred = audio_model.predict_proba(audio_features)[0][1]
+        audio_pred = 0.5  # dummy for now
+
+    # 4. Late fusion (simple average for MVP)
+    final_score = np.mean([text_pred, physio_pred, audio_pred])
 
     return {
-        "depression_probability": dummy_score,
-        "interpretation": "Depressed" if dummy_score > 0.5 else "Not Depressed"
+        "text_score": float(text_pred),
+        "physio_score": float(physio_pred),
+        "audio_score": float(audio_pred),
+        "final_score": float(final_score)
     }
 
-@app.post("/upload_aduio")
-def upload_audio(data: audio_files)
-
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)backend.py

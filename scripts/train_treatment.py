@@ -6,6 +6,7 @@ from sklearn.metrics import classification_report
 import joblib
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
 
 # ---- 1. Create a fake dataset ----
 print("Creating fake dataset to simulate the STAR*D dataset")
@@ -64,5 +65,6 @@ plt.title("Feature Importance in Treatment Prediction")
 plt.show()
 
 # ---- 5. Save model ----
+os.makedirs("models", exist_ok=true)
 joblib.dump(clf, "models/treatment_model.pkl")
 print("Treatment model saved to models/treatment_model.pkl")

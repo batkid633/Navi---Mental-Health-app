@@ -24,6 +24,12 @@ def predict_text_physio(data: TextPhysioInput):
     # For MVP demo, generate a dummy score
     # Later → plug in trained model
     
+    treatment_model_PATH = "models/treatment_model.pkl"
+    if os.path.exists(treatment_model_PATH):
+        treatment_model = joblib.load("models/treatment_model.pkl")
+    else:
+        print("No trained models found")
+        
     dummy_score = round(random.uniform(0, 1), 3)
 
     return {

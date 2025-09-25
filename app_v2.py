@@ -53,6 +53,7 @@ if st.button("Analyze mood"):
             st.error("Error connecting to backend API")
 
         #display result
+        # FIX FOR WHAT backend.py ACTUALLY RETURNS
         st.subheader("Mood Prediction")
         st.write(f"Predicted mood: *{label_str}")
         st.write("Confidence:")

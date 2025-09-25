@@ -19,6 +19,9 @@ with open("audio_model.pkl", "rb") as f:
 
 with open("physio_model.pkl", "rb") as f:
     physio_model = pickle.load(f)
+    
+with open("fusion_model.pkl", "rb") as f:
+    fusion_model = pickle.load(f)
 
 @app.post("/predict/")
 async def predict(
@@ -44,7 +47,7 @@ async def predict(
         # audio_pred = audio_model.predict_proba(audio_features)[0][1]
         audio_pred = 0.5  # dummy for now
 
-    # 4. Late fusion (simple average for MVP)
+    # 4. Late fusion
     final_score = np.mean([text_pred, physio_pred, audio_pred])
 
     return {

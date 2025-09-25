@@ -4,7 +4,7 @@ import os
 import joblib
 import pickle
 import requests
-
+from dotenv import load_dotenv
 
 #----- Set up local storage for journal entries ----
 LOG_FILE = "data/journal_log.csv"
@@ -33,7 +33,9 @@ if st.button("Analyze mood"):
         journal_df.to_csv(LOG_FILE,index=False)
 
   # Send data to FastAPI backend
-        url = "http://127.0.0.1:8000/predict/"
+        load_dotenv()
+        API_KEY = os.getenv("API_KEY")
+
         payload = {
             "journal_entry": journal_entry,
             "age": age,
@@ -42,7 +44,7 @@ if st.button("Analyze mood"):
             "steps": steps,
             "anxiety_score": anxiety_score
         }
-        response = requests.post(url, json=payload)
+        response = requests.post(API_KEY, json=payload)
 
         if response.status_code == 200:
             result = response.json()

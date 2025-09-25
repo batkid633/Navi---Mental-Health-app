@@ -47,8 +47,7 @@ if st.button("Analyze mood"):
 
         if response.status_code == 200:
             result = response.json()
-            st.success(f"Depression Probability: {result['depression_probability']}")
-            st.info(f"Interpretation: {result['interpretation']}")
+            st.success(f"Depression Probability: {result['final_pred']}")
         else:
             st.error("Error connecting to backend API")
 

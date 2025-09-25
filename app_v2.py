@@ -13,7 +13,7 @@ os.makedirs("data", exist_ok=True)
 if os.path.exists(LOG_FILE):
     journal_df = pd.read_csv(LOG_FILE)
 else:
-    journal_df = pd.DataFrame(columns=["timestamp","entry","predicted_label","depression_probability"])
+    journal_df = pd.DataFrame(columns=["timestamp","entry","text_prediction","audio_prediction","physio_prediction","final_prediction"])
 
 #---------------- Sreamlit UI ----------------- 
 st.header("Mood Journal")
@@ -27,8 +27,7 @@ if st.button("Analyze mood"):
         new_row={
             "timestamp":datetime.now().strftime("%Y-%m-%d %H:%M"),
             "entry": entry,
-            "predicted_label": label,
-            "depression_probability" : probs
+            "text_prediction" : text_score
         }
         journal_df = pd.concat([journal_df, pd.DataFrame([new_row])],ignore_index=True)
         journal_df.to_csv(LOG_FILE,index=False)
@@ -65,11 +64,11 @@ if st.button("Analyze mood"):
 
 # ------------- Show Past entries -------------------
 st.subheader("Mood history")
-threshold = 0.855
+threshold = 0.5
 journal_df["threshold"] = threshold
 if len(journal_df) > 0:
-    st.dataframe(journal_df[["timestamp","entry","predicted_label","depression_probability"]])
-    st.line_chart(journal_df.set_index("timestamp")[["depression_probability","threshold"]])
+    st.dataframe(journal_df[["timestamp","entry","final_score"]])
+    st.line_chart(journal_df.set_index("timestamp")[["final_score","threshold"]])
 
 # ----------------- Treatment Panel -----------------
 

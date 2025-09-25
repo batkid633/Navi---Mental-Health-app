@@ -47,17 +47,19 @@ if st.button("Analyze mood"):
 
         if response.status_code == 200:
             result = response.json()
-            st.success(f"Depression Probability: {result['final_pred']}")
-        else:
-            st.error("Error connecting to backend API")
+            st.subheader("Model Scores")
+            st.write(f"**Text Score:** {result['text_score']:.2f}")
+            st.write(f"**Physio Score:** {result['physio_score']:.2f}")
+            st.write(f"**Audio Score:** {result['audio_score']:.2f}")
+            st.write(f"**Final Depression Score:** {result['final_score']:.2f}")
 
-        #display result
-        # FIX FOR WHAT backend.py ACTUALLY RETURNS
-        st.subheader("Mood Prediction")
-        st.write(f"Predicted mood: *{label_str}")
-        st.write("Confidence:")
-        for i, prob in enumerate(label_proba):
-            st.write(f"- Class {i}: {prob:.2f}")
+            # Add a little interpretation
+            if result["final_score"] > 0.5:
+                st.error("This entry suggests elevated depression risk")
+            else:
+                st.success("This entry suggests low depression risk")
+        else:
+            st.error(f"API error: {response.status_code}")
     else:
         st.warning("Please type something before analyzing.")
 

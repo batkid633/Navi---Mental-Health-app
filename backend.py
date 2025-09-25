@@ -48,7 +48,18 @@ async def predict(
         audio_pred = 0.5  # dummy for now
 
     # 4. Late fusion
-    final_score = np.mean([text_pred, physio_pred, audio_pred])
+    
+    X_fusion = np.vstack([text_probs, audio_probs, physio_probs]).T
+    y_fusion = labels
+
+    fusion_model = LogisticRegression()
+    fusion_model.fit(X_fusion, y_fusion)
+    
+    fusion_probs = fusion_model.predict_proba(X_fusion)[:, 1]
+    y_pred = (fusion_probs >= 0.5).astype(int)
+    
+    final_score = []
+    final_score.append(y_fusion, y_pred)
 
     return {
         "text_score": float(text_pred),

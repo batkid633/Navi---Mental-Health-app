@@ -2,6 +2,7 @@
 
 The idea is to have a fully integrated mental health companion app, that gives feedback and potential treatment options to a lisenced psychologist
 
+
 CURRENT MODEL:
 
 A journaling feature that assesses text and evaluates a depression score. logs scores in a .csv
@@ -9,6 +10,7 @@ A journaling feature that assesses text and evaluates a depression score. logs s
 
 With that score and other physiological info, a trained model would output treatment options that are most likely to fit your lifestyle and depression type
   - random forest model trained on simulated STAR*D dataset
+
 
 END GOAL:
 
@@ -21,8 +23,22 @@ A depression and anxiety score tracker based on multiple factors
   - late stage fusion ML model that outputs one deression and anxiety score from combined:
     - linear model assessing text entries (trained on reddit/subreddits)
     - random forest assesing audio files (trained on DAIC-WOZ)
-    - 
+    - gradient boosting assessing physio data (DAIC-WOZ?)
 
+A predicted best possible treatment section
+  - ML model (forrest?) trained on STAR*D dataset
+    - uses depression score and physio input, outputs best possible treatment course based on STAR*D dataset
+
+TO DO:
+
+  - run a dev server to host the API and run the heavier models
+  - add storage and simple security for testing (only inputting my data so far)
+  - prepare datasets/remove identifying info (DAIC-WOZ and STAR*D) for integration into pipeline
+  - incorporate physio data from third party source with consent
+  - train models and store artifacts
+  - add stronger encryption for future users
+  - mobile and full web UI
+  
 
 
 

@@ -20,7 +20,7 @@ A depression and anxiety score tracker based on multiple factors
   - lifestlye and physical attributes (itegrated from a fitness tracker)
   - *possible keyboard/typing behavior tracking
 
-  - late stage fusion ML model that outputs one deression and anxiety score from combined:
+  - late stage fusion ML model that outputs one depression and anxiety score from combined:
     - linear model assessing text entries (trained on reddit/subreddits)
     - random forest assesing audio files (trained on DAIC-WOZ)
     - gradient boosting assessing physio data (DAIC-WOZ?)
@@ -31,7 +31,6 @@ A predicted best possible treatment section
 
 TO DO:
 
-  - run a dev server to host the API and run the heavier models
   - add storage and simple security for testing (only inputting my data so far)
   - prepare datasets/remove identifying info (DAIC-WOZ and STAR*D) for integration into pipeline
   - incorporate physio data from third party source with consent

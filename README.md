@@ -1,6 +1,6 @@
 # Navi---Mental-Health-app
 
-The idea is to have a fully integrated mental health companion app, that gives feedback and potential treatment options to a lisenced psychologist
+The idea is to have a fully integrated mental health companion app, that gives feedback and potential treatment options to a lisenced psychologist. Provides a working application/product that integrates multimodal depression analysis with a dataset backed treatment prediction
 
 
 CURRENT MODEL:

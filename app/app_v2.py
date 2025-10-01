@@ -1,76 +1,102 @@
-import streamlit as st, pandas as pd, numpy as np
+import streamlit as st
+import pandas as pd
+import numpy as np
 from datetime import datetime
 import os
-import joblib
-import pickle
 import requests
 from dotenv import load_dotenv
 
-#----- Set up local storage for journal entries ----
+# --------------------------
+# Local log storage
+# --------------------------
 LOG_FILE = "data/journal_log.csv"
 os.makedirs("data", exist_ok=True)
 
 if os.path.exists(LOG_FILE):
     journal_df = pd.read_csv(LOG_FILE)
 else:
-    journal_df = pd.DataFrame(columns=["timestamp","entry","text_prediction","audio_prediction","physio_prediction","final_prediction"])
+    journal_df = pd.DataFrame(columns=[
+        "timestamp", "entry",
+        "text_score", "audio_score", "physio_score", "final_score"
+    ])
 
-#---------------- Sreamlit UI ----------------- 
+# --------------------------
+# Streamlit UI
+# --------------------------
 st.header("Mood Journal")
-st.write("Log your daily jounral entry and track mood predictions over time")
+st.write("Log your daily journal entry and track mood predictions over time")
 
-entry = st.text_area("Write your journal entry here:",height=150)
-if st.button("Analyze mood"):
+# Journal entry
+entry = st.text_area("Write your journal entry here:", height=150)
+
+# Physiological data inputs
+st.subheader("Physiological Data (Demo)")
+age = st.slider("Age", 18, 80, 30)
+sleep_hours = st.slider("Sleep Hours", 0, 12, 7)
+avg_heart_rate = st.slider("Average Resting Heart Rate (bpm)", 40, 120, 80)
+steps = st.slider("Steps (per day)", 0, 20000, 5000)
+anxiety_score = st.slider("Anxiety Score", 0, 10, 5)
+
+# --------------------------
+# Submit button
+# --------------------------
+if st.button("Analyze Mood"):
     if entry.strip():
-
-        #save entry
-        new_row={
-            "timestamp":datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "entry": entry,
-            "text_prediction" : text_score
-        }
-        journal_df = pd.concat([journal_df, pd.DataFrame([new_row])],ignore_index=True)
-        journal_df.to_csv(LOG_FILE,index=False)
-
-  # Send data to FastAPI backend
+        # Load API key / URL
         load_dotenv()
-        API_KEY = os.getenv("API_KEY")
+        API_URL = os.getenv("API_KEY")  # e.g. http://127.0.0.1:8000/predict
 
         payload = {
-            "journal_entry": journal_entry,
+            "journal_entry": entry,
             "age": age,
             "sleep_hours": sleep_hours,
             "avg_heart_rate": avg_heart_rate,
             "steps": steps,
             "anxiety_score": anxiety_score
         }
-        response = requests.post(API_KEY, json=payload)
+
+        response = requests.post(API_URL, json=payload)
 
         if response.status_code == 200:
             result = response.json()
+
+            # Display scores
             st.subheader("Model Scores")
             st.write(f"**Text Score:** {result['text_score']:.2f}")
             st.write(f"**Physio Score:** {result['physio_score']:.2f}")
             st.write(f"**Audio Score:** {result['audio_score']:.2f}")
             st.write(f"**Final Depression Score:** {result['final_score']:.2f}")
 
-            # Add a little interpretation
+            # Interpretation
             if result["final_score"] > 0.5:
-                st.error("This entry suggests elevated depression risk")
+                st.error("Elevated depression risk predicted")
             else:
-                st.success("This entry suggests low depression risk")
+                st.success("Low depression risk predicted")
+
+            # Save log entry
+            new_row = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "entry": entry,
+                "text_score": result["text_score"],
+                "audio_score": result["audio_score"],
+                "physio_score": result["physio_score"],
+                "final_score": result["final_score"],
+            }
+            journal_df = pd.concat([journal_df, pd.DataFrame([new_row])], ignore_index=True)
+            journal_df.to_csv(LOG_FILE, index=False)
+
         else:
             st.error(f"API error: {response.status_code}")
     else:
         st.warning("Please type something before analyzing.")
 
-# ------------- Show Past entries -------------------
-st.subheader("Mood history")
-threshold = 0.5
-journal_df["threshold"] = threshold
+# --------------------------
+# Show Past entries
+# --------------------------
+st.subheader("Mood History")
 if len(journal_df) > 0:
-    st.dataframe(journal_df[["timestamp","entry","final_score"]])
-    st.line_chart(journal_df.set_index("timestamp")[["final_score","threshold"]])
+    st.dataframe(journal_df[["timestamp", "entry", "final_score"]])
+    st.line_chart(journal_df.set_index("timestamp")[["final_score"]])
 
 # ----------------- Treatment Panel -----------------
 

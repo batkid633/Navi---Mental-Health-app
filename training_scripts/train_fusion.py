@@ -104,4 +104,4 @@ with open("models/physio_model.pkl", "wb") as f:
 with open("models/fusion_model.pkl", "wb") as f:
     pickle.dump(fusion_model, f)
 
-print("✅ All models saved to /models/")
+print("All models saved to /models/")

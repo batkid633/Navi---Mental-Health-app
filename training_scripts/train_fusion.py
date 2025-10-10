@@ -13,21 +13,66 @@ from sklearn.metrics import classification_report
 # ---------------------------
 print("Training text model...")
 
-text_data = [
-    "I feel hopeless and tired",
-    "I had a wonderful day with friends",
-    "Nothing makes sense anymore",
-    "I'm excited about my new job",
-]
-labels = [1, 0, 1, 0]  # 1 = depressed, 0 = not depressed
+import praw
+import pandas as pd
+from dotenv import load_dotenv
 
-vectorizer = TfidfVectorizer(max_features=500)
-X_text = vectorizer.fit_transform(text_data)
+load_dotenv()
+praw_id = os.getenv("PRAW_ID")
+praw_secret = os.getenv("PRAW_secret")
+
+reddit = praw.Reddit(
+    client_id=str(praw_id),
+    client_secret=str(praw_secret),
+    user_agent="depression text classifier using Reddit posts by u/Slow-Bit-155"
+)
+
+# Define subreddits to use
+depressed_subs = ["depression", "offmychest", "mentalhealth"]
+control_subs = ["happy", "CasualConversation", "GetMotivated"]
+
+def fetch_posts(subs, label, limit=300):
+    data = []
+    for sub in subs:
+        for post in reddit.subreddit(sub).hot(limit=limit):
+            data.append({"text": post.title + " " + post.selftext, "label": label})
+    return pd.DataFrame(data)
+
+df_depressed = fetch_posts(depressed_subs, 1)
+df_control = fetch_posts(control_subs, 0)
+
+reddit_df = pd.concat([df_depressed, df_control], ignore_index=True)
+reddit_df = reddit_df.dropna().sample(frac=1).reset_index(drop=True)
+reddit_df.to_csv("data/reddit_text.csv", index=False)
+print("✅ Saved Reddit data with shape:", reddit_df.shape)
+
+daic_path = "data/DAIC_WOZ/transcripts/"
+texts, labels = [], []
+
+for file in os.listdir(daic_path):
+    if file.endswith(".txt"):
+        with open(os.path.join(daic_path, file), "r", encoding="utf-8") as f:
+            texts.append(f.read())
+            # Example: label based on PHQ-8 score in metadata CSV
+            # Let's assume you have daic_labels.csv with participant_id and depression label
+daic_labels = pd.read_csv("data/DAIC_WOZ/labels.csv")
+daic_df = pd.DataFrame({"text": texts, "label": daic_labels["depression"]})
+
+# Combine Reddit + DAIC
+text_df = pd.concat([reddit_df, daic_df], ignore_index=True)
+X_text = text_df["text"]
+y_text = text_df["label"]
+
+vectorizer = TfidfVectorizer(max_features=5000,
+    stop_words="english",
+    ngram_range=(1,2)
+)
+X_vec = vectorizer.fit_transform(X_text)
 
 text_model = LogisticRegression(max_iter=1000)
-text_model.fit(X_text, labels)
+text_model.fit(X_vec, labels)
 
-text_probs = text_model.predict_proba(X_text)[:, 1]
+text_probs = text_model.predict_proba(X_vec)[:, 1]
 
 # ---------------------------
 # 2. AUDIO MODEL

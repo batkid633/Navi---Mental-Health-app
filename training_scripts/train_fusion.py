@@ -3,6 +3,8 @@ import pandas as pd
 import librosa
 import pickle
 
+from cryptography.fernet import Fernet
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -31,11 +33,15 @@ reddit = praw.Reddit(
 depressed_subs = ["depression", "offmychest", "mentalhealth"]
 control_subs = ["happy", "CasualConversation", "GetMotivated"]
 
+# ---------- 1. Fetch Reddit posts ----------
 def fetch_posts(subs, label, limit=300):
     data = []
     for sub in subs:
         for post in reddit.subreddit(sub).hot(limit=limit):
-            data.append({"text": post.title + " " + post.selftext, "label": label})
+            data.append({
+                "text": f"{post.title} {post.selftext}",
+                "label": label
+            })
     return pd.DataFrame(data)
 
 df_depressed = fetch_posts(depressed_subs, 1)
@@ -44,53 +50,92 @@ df_control = fetch_posts(control_subs, 0)
 reddit_df = pd.concat([df_depressed, df_control], ignore_index=True)
 reddit_df = reddit_df.dropna().sample(frac=1).reset_index(drop=True)
 reddit_df.to_csv("data/reddit_text.csv", index=False)
-print("✅ Saved Reddit data with shape:", reddit_df.shape)
+print("Saved Reddit data with shape:", reddit_df.shape)
 
-daic_path = "data/DAIC_WOZ/transcripts/"
-texts, labels = [], []
+# ---------- 2. Decrypt and load DAIC data ----------
+load_dotenv()
 
-for file in os.listdir(daic_path):
-    if file.endswith(".txt"):
-        with open(os.path.join(daic_path, file), "r", encoding="utf-8") as f:
-            texts.append(f.read())
-            # Example: label based on PHQ-8 score in metadata CSV
-            # Let's assume you have daic_labels.csv with participant_id and depression label
-daic_labels = pd.read_csv("data/DAIC_WOZ/labels.csv")
-daic_df = pd.DataFrame({"text": texts, "label": daic_labels["depression"]})
+encryption_key = os.getenv("encryption_KEY") 
+fernet = Fernet(encryption_key)
 
-# Combine Reddit + DAIC
+encrypted_path = "data/cleaned_daic_data_encrypted.csv"
+with open(encrypted_path, "rb") as file:
+    encrypted_file = file.read()
+
+# Decrypt file contents
+decrypted_bytes = fernet.decrypt(encrypted_file)
+decoded_str = decrypted_bytes.decode("utf-8")
+
+# Convert decrypted CSV text back into DataFrame
+from io import StringIO
+daic_df = pd.read_csv(StringIO(decoded_str))
+print("Loaded DAIC data with shape:", daic_df.shape)
+
+# ---------- 3. Match with labels ----------
+# If you have a separate labels file for participants (e.g., depression severity)
+# make sure participant_id is consistent between datasets
+try:
+    labels_path = "data/DAIC_WOZ/labels.csv"
+    daic_labels = pd.read_csv(labels_path)
+    if "participant_id" in daic_df.columns:
+        daic_df = daic_df.merge(
+            daic_labels[["participant_id", "depression"]],
+            on="participant_id",
+            how="left"
+        )
+        daic_df = daic_df.rename(columns={"depression": "label"})
+except FileNotFoundError:
+    print("Warning: labels.csv not found — using existing labels if present")
+
+# ---------- 4. Combine Reddit + DAIC ----------
 text_df = pd.concat([reddit_df, daic_df], ignore_index=True)
+text_df = text_df.dropna(subset=["text", "label"])
+print("Combined text dataset shape:", text_df.shape)
+
 X_text = text_df["text"]
 y_text = text_df["label"]
 
-vectorizer = TfidfVectorizer(max_features=5000,
+# ---------- 5. Train vectorizer and model ----------
+vectorizer = TfidfVectorizer(
+    max_features=5000,
     stop_words="english",
-    ngram_range=(1,2)
+    ngram_range=(1, 2)
 )
 X_vec = vectorizer.fit_transform(X_text)
 
 text_model = LogisticRegression(max_iter=1000)
-text_model.fit(X_vec, labels)
+text_model.fit(X_vec, y_text)
 
 text_probs = text_model.predict_proba(X_vec)[:, 1]
+print("Text model trained successfully.")
 
 # ---------------------------
 # 2. AUDIO MODEL
 # ---------------------------
-print("Training audio model...")
 
-# Example: simulate audio features (replace with librosa MFCCs for real data)
-# For demo, we'll just use random features
-X_audio = np.random.rand(len(labels), 13)  # 13 MFCCs typically - REPLACE WITH CODE ON 3 LINES BELOW
-# y, sr = librosa.load("path_to_audio.wav", sr=16000)
-# mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-# mfccs_mean = np.mean(mfccs, axis=1)
-y_audio = labels
+# ---------- 1. Load and decrypt ----------
+load_dotenv()
+encryption_key = os.getenv("encryption_KEY")
+fernet = Fernet(encryption_key.encode())
 
-audio_model = RandomForestClassifier()
+with open("data/daic_audio_features_encrypted.bin", "rb") as f:
+    encrypted_data = f.read()
+
+decrypted_csv = fernet.decrypt(encrypted_data).decode()
+audio_df = pd.read_csv(pd.io.common.StringIO(decrypted_csv))
+
+print("Decrypted MFCC features:", audio_df.shape)
+
+# ---------- 2. Prepare data ----------
+X_audio = audio_df.filter(regex="mfcc_").values
+y_audio = audio_df["label"].values
+
+# ---------- 3. Train model ----------
+audio_model = RandomForestClassifier(n_estimators=100, random_state=42)
 audio_model.fit(X_audio, y_audio)
 
 audio_probs = audio_model.predict_proba(X_audio)[:, 1]
+print("Audio model trained on decrypted MFCCs")
 
 # ---------------------------
 # 3. PHYSIO MODEL

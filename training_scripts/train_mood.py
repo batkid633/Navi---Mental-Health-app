@@ -14,11 +14,11 @@ from sklearn.metrics import classification_report
 import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-# --- Step 1: Load data ---
+# Load data
 print("Loading data...")
 df = pd.read_csv("data/raw/rmhd_master.csv")  # update path if needed
 
-# --- Step 2: Create proxy labels ---
+# Create proxy labels
 print("Labeling the dataset...")
 depression_subs = ["depression", "SuicideWatch", "offmychest", "Anxiety", "bipolarreddit","alcoholism"]
 df["label"] = df["subreddit"].apply(lambda x: 1 if x.lower() in depression_subs else 0)
@@ -27,7 +27,7 @@ print(df["label"].value_counts())
 X_text = df["post"].astype(str)
 y = df["label"].astype(int)
 
-# --- Step 3: Train classifier ---
+# Train classifier
 print("Training classifier...")
 X_train, X_test, y_train, y_test = train_test_split(X_text, y, test_size=0.2, random_state=42)
 

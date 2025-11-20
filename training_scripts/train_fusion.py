@@ -10,9 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import classification_report
 
-# ---------------------------
 # 1. TEXT MODEL
-# ---------------------------
 print("Training text model...")
 
 import praw
@@ -33,7 +31,7 @@ reddit = praw.Reddit(
 depressed_subs = ["depression", "offmychest", "mentalhealth"]
 control_subs = ["happy", "CasualConversation", "GetMotivated"]
 
-# ---------- 1. Fetch Reddit posts ----------
+# Fetch Reddit posts
 def fetch_posts(subs, label, limit=300):
     data = []
     for sub in subs:
@@ -52,7 +50,7 @@ reddit_df = reddit_df.dropna().sample(frac=1).reset_index(drop=True)
 reddit_df.to_csv("data/reddit_text.csv", index=False)
 print("Saved Reddit data with shape:", reddit_df.shape)
 
-# ---------- 2. Decrypt and load DAIC data ----------
+# Decrypt and load DAIC data
 load_dotenv()
 
 encryption_key = os.getenv("encryption_KEY") 
@@ -71,9 +69,8 @@ from io import StringIO
 daic_df = pd.read_csv(StringIO(decoded_str))
 print("Loaded DAIC data with shape:", daic_df.shape)
 
-# ---------- 3. Match with labels ----------
-# If you have a separate labels file for participants (e.g., depression severity)
-# make sure participant_id is consistent between datasets
+# Match with labels
+# If you have a separate labels file for participants (e.g., depression severity) make sure participant_id is consistent between datasets
 try:
     labels_path = "data/DAIC_WOZ/labels.csv"
     daic_labels = pd.read_csv(labels_path)
@@ -87,7 +84,7 @@ try:
 except FileNotFoundError:
     print("Warning: labels.csv not found — using existing labels if present")
 
-# ---------- 4. Combine Reddit + DAIC ----------
+# Combine Reddit + DAIC
 text_df = pd.concat([reddit_df, daic_df], ignore_index=True)
 text_df = text_df.dropna(subset=["text", "label"])
 print("Combined text dataset shape:", text_df.shape)
@@ -95,7 +92,7 @@ print("Combined text dataset shape:", text_df.shape)
 X_text = text_df["text"]
 y_text = text_df["label"]
 
-# ---------- 5. Train vectorizer and model ----------
+# Train vectorizer and model
 vectorizer = TfidfVectorizer(
     max_features=5000,
     stop_words="english",
@@ -109,11 +106,9 @@ text_model.fit(X_vec, y_text)
 text_probs = text_model.predict_proba(X_vec)[:, 1]
 print("Text model trained successfully.")
 
-# ---------------------------
 # 2. AUDIO MODEL
-# ---------------------------
 
-# ---------- 1. Load and decrypt ----------
+# Load and decrypt
 load_dotenv()
 encryption_key = os.getenv("encryption_KEY")
 fernet = Fernet(encryption_key.encode())
@@ -126,20 +121,18 @@ audio_df = pd.read_csv(pd.io.common.StringIO(decrypted_csv))
 
 print("Decrypted MFCC features:", audio_df.shape)
 
-# ---------- 2. Prepare data ----------
+# Prepare data
 X_audio = audio_df.filter(regex="mfcc_").values
 y_audio = audio_df["label"].values
 
-# ---------- 3. Train model ----------
+# Train model
 audio_model = RandomForestClassifier(n_estimators=100, random_state=42)
 audio_model.fit(X_audio, y_audio)
 
 audio_probs = audio_model.predict_proba(X_audio)[:, 1]
 print("Audio model trained on decrypted MFCCs")
 
-# ---------------------------
 # 3. PHYSIO MODEL
-# ---------------------------
 print("Training physio model...")
 
 # Simulated data: [heart_rate, sleep_hours, exercise_minutes]
@@ -156,9 +149,7 @@ physio_model.fit(X_physio, y_physio)
 
 physio_probs = physio_model.predict_proba(X_physio)[:, 1]
 
-# ---------------------------
 # 4. LATE-FUSION MODEL
-# ---------------------------
 print("Training fusion model...")
 
 # Stack all unimodal probability outputs
@@ -174,9 +165,7 @@ y_pred = (fusion_probs >= 0.5).astype(int)
 print("\nFusion Model Report:")
 print(classification_report(y_fusion, y_pred))
 
-# ---------------------------
 # 5. SAVE MODELS
-# ---------------------------
 print("Saving models...")
 
 with open("models/text_vectorizer.pkl", "wb") as f:

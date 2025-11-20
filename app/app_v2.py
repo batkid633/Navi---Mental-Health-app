@@ -6,9 +6,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-# --------------------------
 # Local log storage
-# --------------------------
 LOG_FILE = "data/journal_log.csv"
 os.makedirs("data", exist_ok=True)
 
@@ -20,9 +18,7 @@ else:
         "text_score", "audio_score", "physio_score", "final_score"
     ])
 
-# --------------------------
 # Streamlit UI
-# --------------------------
 st.header("Mood Journal")
 st.write("Log your daily journal entry and track mood predictions over time")
 
@@ -37,14 +33,12 @@ avg_heart_rate = st.slider("Average Resting Heart Rate (bpm)", 40, 120, 80)
 steps = st.slider("Steps (per day)", 0, 20000, 5000)
 anxiety_score = st.slider("Anxiety Score", 0, 10, 5)
 
-# --------------------------
 # Submit button
-# --------------------------
 if st.button("Analyze Mood"):
     if entry.strip():
         # Load API key / URL
         load_dotenv()
-        API_URL = os.getenv("API_KEY")  # e.g. http://127.0.0.1:8000/predict
+        API_URL = os.getenv("API_KEY")
 
         payload = {
             "journal_entry": entry,
@@ -90,17 +84,15 @@ if st.button("Analyze Mood"):
     else:
         st.warning("Please type something before analyzing.")
 
-# --------------------------
 # Show Past entries
-# --------------------------
 st.subheader("Mood History")
 if len(journal_df) > 0:
     st.dataframe(journal_df[["timestamp", "entry", "final_score"]])
     st.line_chart(journal_df.set_index("timestamp")[["final_score"]])
 
-# ----------------- Treatment Panel -----------------
+# Treatment Panel
 
-st.header("💊 Treatment Matching")
+st.header("Treatment Matching")
 st.subheader("Patient Information")
 
 probs = st.session_state.get("probability", 0.0)
@@ -122,21 +114,21 @@ if st.button("Predict Treatment Plan"):
     treatment_pred = treatment_model.predict(X_input)[0]
     st.success(f"Recommended treatment plan: **{treatment_pred}**")
 
-# ---------- Incoming Features ------------
+# Incoming Features
 st.markdown("---")
 st.subheader("Upcoming Features")
 st.markdown("---")
 st.markdown(
     """
     **Typing/Keyboard Tracker**  
-    ⌨️ Analysis of typing speed, error rate, and rhythm to detect mood shifts  
+    Analysis of typing speed, error rate, and rhythm to detect mood shifts  
     
     **Wearable Fitness Tracker Data**  
-    ⌚ Integration with Apple Health, Fitbit, Garmin, etc. to monitor sleep, HRV, and activity.  
+    Integration with Apple Health, Fitbit, Garmin, etc. to monitor sleep, HRV, and activity.  
     
     **Audio Environment Tracker**  
-    🎤 Analyze background noise, speech tone, and vocal energy for early depression/anxiety insights.  
+    Analyze background noise, speech tone, and vocal energy for early depression/anxiety insights.  
 
     **LLM Therapy Chat Bot**
-    🤖 Therapy chat bot that would serve as a stand-in for a therapist and help orchestrate therapy appointments
+    Therapy chat bot that would serve as a stand-in for a therapist and help orchestrate therapy appointments
     """)

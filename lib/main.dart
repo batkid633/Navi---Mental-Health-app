@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-// ignore: unnecessary_import
-import 'package:hive/hive.dart';
 import 'models/journal_entry.dart';
+import 'models/audio_entry.dart';
 import 'pages/journal_page.dart';
 import 'pages/today_page.dart';
 import 'pages/audio_page.dart';
 import 'pages/insights_page.dart';
+import 'services/auth_service.dart';
+import 'services/data_service.dart';
+import 'widgets/auth_gate.dart';
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Hive with the default directory (Documents) to preserve existing data
   await Hive.initFlutter();
+
   Hive.registerAdapter(JournalEntryAdapter());
-  await Hive.openBox<JournalEntry>('journal');
+  Hive.registerAdapter(AudioEntryAdapter());
 
   runApp(const NaviApp());
 }
@@ -31,13 +36,16 @@ class NaviApp extends StatelessWidget {
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
-      home: const NaviHome(),
+      home: const AuthGate(),
     );
   }
 }
 
 class NaviHome extends StatefulWidget {
-  const NaviHome({super.key});
+  final DataService dataService;
+  final AuthService authService;
+
+  const NaviHome({super.key, required this.dataService, required this.authService});
 
   @override
   State<NaviHome> createState() => _NaviHomeState();
@@ -47,16 +55,27 @@ class _NaviHomeState extends State<NaviHome> {
   int _tabIndex = 0;
   
 
-  final List<Widget> _pages = [
-    TodayPage(),
-    JournalPage(),
-    AudioPage(),
-    InsightsPage(),
+  late final List<Widget> _pages = [
+    TodayPage(dataService: widget.dataService),
+    JournalPage(dataService: widget.dataService),
+    AudioPage(dataService: widget.dataService),
+    InsightsPage(dataService: widget.dataService),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Navi'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await widget.authService.signOut();
+            },
+          ),
+        ],
+      ),
       body: _pages[_tabIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,

@@ -1,0 +1,664 @@
+extend type Mutation {
+  """
+  ✨ Insert a single `JournalEntry` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  journalEntry_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: JournalEntry_Data!
+  ): JournalEntry_KeyOutput! @fdc_generated(from: "JournalEntry", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `JournalEntryTag` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  journalEntryTag_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: JournalEntryTag_Data!
+  ): JournalEntryTag_KeyOutput! @fdc_generated(from: "JournalEntryTag", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `MFCCData` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  mFCCData_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: MFCCData_Data!
+  ): MFCCData_KeyOutput! @fdc_generated(from: "MFCCData", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `MoodPrediction` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  moodPrediction_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: MoodPrediction_Data!
+  ): MoodPrediction_KeyOutput! @fdc_generated(from: "MoodPrediction", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Tag` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  tag_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Tag_Data!
+  ): Tag_KeyOutput! @fdc_generated(from: "Tag", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `User` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `JournalEntry` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  journalEntry_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [JournalEntry_Data!]!
+  ): [JournalEntry_KeyOutput!]! @fdc_generated(from: "JournalEntry", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `JournalEntryTag` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  journalEntryTag_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [JournalEntryTag_Data!]!
+  ): [JournalEntryTag_KeyOutput!]! @fdc_generated(from: "JournalEntryTag", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `MFCCData` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  mFCCData_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [MFCCData_Data!]!
+  ): [MFCCData_KeyOutput!]! @fdc_generated(from: "MFCCData", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `MoodPrediction` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  moodPrediction_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [MoodPrediction_Data!]!
+  ): [MoodPrediction_KeyOutput!]! @fdc_generated(from: "MoodPrediction", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Tag` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  tag_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Tag_Data!]!
+  ): [Tag_KeyOutput!]! @fdc_generated(from: "Tag", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `User` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert or update a single `JournalEntry` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `JournalEntry`.
+  """
+  journalEntry_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: JournalEntry_Data!
+  ): JournalEntry_KeyOutput! @fdc_generated(from: "JournalEntry", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `JournalEntryTag` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `JournalEntryTag`.
+  """
+  journalEntryTag_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: JournalEntryTag_Data!
+  ): JournalEntryTag_KeyOutput! @fdc_generated(from: "JournalEntryTag", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `MFCCData` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `MFCCData`.
+  """
+  mFCCData_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: MFCCData_Data!
+  ): MFCCData_KeyOutput! @fdc_generated(from: "MFCCData", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `MoodPrediction` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `MoodPrediction`.
+  """
+  moodPrediction_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: MoodPrediction_Data!
+  ): MoodPrediction_KeyOutput! @fdc_generated(from: "MoodPrediction", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Tag` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Tag`.
+  """
+  tag_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Tag_Data!
+  ): Tag_KeyOutput! @fdc_generated(from: "Tag", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `User` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update `JournalEntry` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `JournalEntry`.
+  """
+  journalEntry_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [JournalEntry_Data!]!
+  ): [JournalEntry_KeyOutput!]! @fdc_generated(from: "JournalEntry", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `JournalEntryTag` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `JournalEntryTag`.
+  """
+  journalEntryTag_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [JournalEntryTag_Data!]!
+  ): [JournalEntryTag_KeyOutput!]! @fdc_generated(from: "JournalEntryTag", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `MFCCData` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `MFCCData`.
+  """
+  mFCCData_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [MFCCData_Data!]!
+  ): [MFCCData_KeyOutput!]! @fdc_generated(from: "MFCCData", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `MoodPrediction` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `MoodPrediction`.
+  """
+  moodPrediction_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [MoodPrediction_Data!]!
+  ): [MoodPrediction_KeyOutput!]! @fdc_generated(from: "MoodPrediction", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Tag` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Tag`.
+  """
+  tag_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Tag_Data!]!
+  ): [Tag_KeyOutput!]! @fdc_generated(from: "Tag", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `User` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `JournalEntry` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `JournalEntry` or `null` if not found.
+  """
+  journalEntry_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: JournalEntry_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: JournalEntry_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: JournalEntry_Data!
+  ): JournalEntry_KeyOutput @fdc_generated(from: "JournalEntry", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `JournalEntryTag` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `JournalEntryTag` or `null` if not found.
+  """
+  journalEntryTag_update(
+    """
+    The key used to identify the object.
+    """
+    key: JournalEntryTag_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: JournalEntryTag_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: JournalEntryTag_Data!
+  ): JournalEntryTag_KeyOutput @fdc_generated(from: "JournalEntryTag", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `MFCCData` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `MFCCData` or `null` if not found.
+  """
+  mFCCData_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: MFCCData_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: MFCCData_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: MFCCData_Data!
+  ): MFCCData_KeyOutput @fdc_generated(from: "MFCCData", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `MoodPrediction` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `MoodPrediction` or `null` if not found.
+  """
+  moodPrediction_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: MoodPrediction_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: MoodPrediction_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: MoodPrediction_Data!
+  ): MoodPrediction_KeyOutput @fdc_generated(from: "MoodPrediction", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Tag` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Tag` or `null` if not found.
+  """
+  tag_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Tag_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Tag_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Tag_Data!
+  ): Tag_KeyOutput @fdc_generated(from: "Tag", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `User` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `User` or `null` if not found.
+  """
+  user_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: User_Data!
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update `JournalEntry` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  journalEntry_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: JournalEntry_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: JournalEntry_Data!
+  ): Int! @fdc_generated(from: "JournalEntry", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `JournalEntryTag` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  journalEntryTag_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: JournalEntryTag_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: JournalEntryTag_Data!
+  ): Int! @fdc_generated(from: "JournalEntryTag", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `MFCCData` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  mFCCData_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: MFCCData_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: MFCCData_Data!
+  ): Int! @fdc_generated(from: "MFCCData", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `MoodPrediction` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  moodPrediction_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: MoodPrediction_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: MoodPrediction_Data!
+  ): Int! @fdc_generated(from: "MoodPrediction", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Tag` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  tag_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Tag_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Tag_Data!
+  ): Int! @fdc_generated(from: "Tag", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `User` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  user_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: User_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: User_Data!
+  ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Delete a single `JournalEntry` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  journalEntry_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: JournalEntry_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: JournalEntry_FirstRow
+  ): JournalEntry_KeyOutput @fdc_generated(from: "JournalEntry", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `JournalEntryTag` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  journalEntryTag_delete(
+    """
+    The key used to identify the object.
+    """
+    key: JournalEntryTag_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: JournalEntryTag_FirstRow
+  ): JournalEntryTag_KeyOutput @fdc_generated(from: "JournalEntryTag", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `MFCCData` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  mFCCData_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: MFCCData_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: MFCCData_FirstRow
+  ): MFCCData_KeyOutput @fdc_generated(from: "MFCCData", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `MoodPrediction` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  moodPrediction_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: MoodPrediction_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: MoodPrediction_FirstRow
+  ): MoodPrediction_KeyOutput @fdc_generated(from: "MoodPrediction", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Tag` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  tag_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Tag_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Tag_FirstRow
+  ): Tag_KeyOutput @fdc_generated(from: "Tag", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `User` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  user_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `JournalEntry` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  journalEntry_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: JournalEntry_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `JournalEntryTag` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  journalEntryTag_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: JournalEntryTag_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntryTag", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `MFCCData` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  mFCCData_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: MFCCData_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "MFCCData", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `MoodPrediction` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  moodPrediction_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: MoodPrediction_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Tag` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  tag_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Tag_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Tag", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `User` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  user_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: User_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "User", purpose: DELETE_MULTIPLE)
+}

@@ -1,18 +1,19 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/tomorrow_outlook.dart';
+import '../config/backend_config.dart';
 
 class MLPredictionService {
  static Future<TomorrowOutlook?> loadTomorrowOutlook({
   required String date,
-  bool force_reload = false,
+  bool forceReload = false,
 }) async {
   final response = await http.post(
-    Uri.parse("http://127.0.0.1:8000/predict/tomorrow"),
+    Uri.parse("${BackendConfig.baseUrl}/predict/tomorrow"),
     headers: {"Content-Type": "application/json"},
     body: jsonEncode({
       "date": date,
-      "force_reload": force_reload,
+      "force_reload": forceReload,
     }),
   );
 

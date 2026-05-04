@@ -4,9 +4,12 @@ import '../models/journal_entry.dart';
 import '../pages/journal_detail_page.dart';
 import '../services/sentiment_service.dart';
 import '../services/ml_export_services.dart';
+import '../services/data_service.dart';
 
 class JournalPage extends StatefulWidget {
-  const JournalPage({super.key});
+  final DataService dataService;
+
+  const JournalPage({super.key, required this.dataService});
 
   @override
   State<JournalPage> createState() => _JournalPageState();
@@ -22,7 +25,12 @@ class _JournalPageState extends State<JournalPage> {
   @override
   void initState() {
     super.initState();
-    journalBox = Hive.box<JournalEntry>('journal');
+    _initBox();
+  }
+
+  Future<void> _initBox() async {
+    journalBox = await widget.dataService.getJournalBox();
+    setState(() {});
   }
 
   @override
@@ -52,6 +60,10 @@ class _JournalPageState extends State<JournalPage> {
       );
 
       await journalBox.put(entry.id, entry);
+      
+      // Sync to cloud
+      await widget.dataService.syncJournalEntryToCloud(entry);
+      
       _controller.clear();
     } catch (e) {
       setState(() {

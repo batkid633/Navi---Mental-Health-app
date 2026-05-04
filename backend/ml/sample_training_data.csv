@@ -1,0 +1,14 @@
+# Sample training data for audio mood classification
+# Format: audio_path,mood_label
+# Mood labels can be: happy, sad, angry, calm, anxious, excited, neutral, etc.
+
+# Example entries (replace with actual audio file paths and labels)
+# /path/to/audio1.wav,happy
+# /path/to/audio2.wav,sad
+# /path/to/audio3.wav,calm
+# /path/to/audio4.wav,anxious
+# /path/to/audio5.wav,excited
+
+# Note: You need at least 10-20 samples per mood class for decent training
+# Audio files should be .wav format, 16-bit, 44.1kHz or 22.05kHz sample rate
+# Recordings should be 3-30 seconds long for best results

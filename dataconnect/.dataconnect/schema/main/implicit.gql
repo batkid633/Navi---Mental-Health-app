@@ -1,0 +1,56 @@
+extend type JournalEntry {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "JournalEntry", purpose: IMPLICIT_KEY_FIELD)
+  """
+  ✨ Implicit foreign key field based on `JournalEntry`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "JournalEntry.user", purpose: IMPLICIT_REF_FIELD)
+}
+extend type JournalEntryTag {
+  """
+  ✨ Implicit foreign key field based on `JournalEntryTag`.`journalEntry`. It must match the value of `JournalEntry`.`id`. See `@ref` for how to customize it.
+  """
+  journalEntryId: UUID! @fdc_generated(from: "JournalEntryTag.journalEntry", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `JournalEntryTag`.`tag`. It must match the value of `Tag`.`id`. See `@ref` for how to customize it.
+  """
+  tagId: UUID! @fdc_generated(from: "JournalEntryTag.tag", purpose: IMPLICIT_REF_FIELD)
+}
+extend type MFCCData {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "MFCCData", purpose: IMPLICIT_KEY_FIELD)
+  """
+  ✨ Implicit foreign key field based on `MFCCData`.`journalEntry`. It must match the value of `JournalEntry`.`id`. See `@ref` for how to customize it.
+  """
+  journalEntryId: UUID! @fdc_generated(from: "MFCCData.journalEntry", purpose: IMPLICIT_REF_FIELD)
+}
+extend type MoodPrediction {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "MoodPrediction", purpose: IMPLICIT_KEY_FIELD)
+  """
+  ✨ Implicit foreign key field based on `MoodPrediction`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "MoodPrediction.user", purpose: IMPLICIT_REF_FIELD)
+}
+extend type Tag {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "Tag", purpose: IMPLICIT_KEY_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Tag`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "Tag.user", purpose: IMPLICIT_REF_FIELD)
+}
+extend type User {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "User", purpose: IMPLICIT_KEY_FIELD)
+}

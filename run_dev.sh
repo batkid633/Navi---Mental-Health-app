@@ -14,7 +14,7 @@ done
 
 # 1. Sync + merge WHOOP data (tokens auto-refresh)
 echo "Syncing WHOOP data..."
-python navi_ml/whoop_sync_and_merge.py
+PYTHONPATH="$PWD:$PYTHONPATH" python navi_ml/whoop_sync_and_merge.py
 
 # 3. Train model
 if [ -z "$RETRAIN_OPT" ]; then
@@ -26,16 +26,27 @@ if [ -z "$RETRAIN_OPT" ]; then
 fi
 
 echo "Training next-day mood model..."
-python backend/ml/train_next_day_mood.py $RETRAIN_OPT
+PYTHONPATH="$PWD:$PYTHONPATH" python backend/ml/train_next_day_mood.py $RETRAIN_OPT
 
 # 4. Build features
 echo "Building feature schema..."
-python backend/ml/feature_builder.py
+PYTHONPATH="$PWD:$PYTHONPATH" python backend/ml/feature_builder.py
 
-# 5. Start backend (background)
-echo "Starting backend server..."
+# 5. Start backend (background) - listening on all interfaces for WiFi
+echo "Starting backend server on 0.0.0.0:8000..."
+echo ""
+echo "⚠️  WiFi SETUP INSTRUCTIONS:"
+echo "1. Find your computer's IP address:"
+echo "   - Windows PowerShell: ipconfig | grep IPv4"
+echo "   - Mac Terminal: ifconfig | grep inet"
+echo "2. Open lib/config/backend_config.dart"
+echo "3. Set useWiFi = true"
+echo "4. Set wiFiIP = \"YOUR_IP_ADDRESS\" (e.g., 192.168.1.100)"
+echo "5. Make sure iPhone is on same WiFi as this computer"
+echo "6. Run app with 'flutter run'"
+echo ""
 cd backend
-uvicorn app:app --reload &
+python -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 cd ..
 

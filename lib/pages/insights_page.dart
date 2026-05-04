@@ -7,9 +7,12 @@ import '../widgets/state_timeline.dart';
 import '../widgets/metrics_dropdown.dart';
 import '../models/insight_trend.dart';
 import '../services/insight_api.dart';
+import '../services/data_service.dart';
 
 class InsightsPage extends StatefulWidget {
-  const InsightsPage({super.key});
+  final DataService dataService;
+
+  const InsightsPage({super.key, required this.dataService});
 
   @override
   State<InsightsPage> createState() => _InsightsPageState();
@@ -37,9 +40,6 @@ class _InsightsPageState extends State<InsightsPage> {
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text("No insight data yet"));
           }
-
-          // ignore: unused_local_variable
-          final data = snapshot.data!;
 
           final trends = snapshot.data!;
           final latest = trends.last;

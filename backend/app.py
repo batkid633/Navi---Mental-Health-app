@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from pydantic import BaseModel
 from sentiment.vader import analyze_sentiment
 from ml.feature_builder import build_features
@@ -6,8 +6,11 @@ from ml.predict_mood import predict_next_day
 from ml.feature_loader import load_features_for_date
 from ml.llm_insights import generate_insight, get_llm_insight
 from ml.insight_trends import load_insight_trends
+from ml.audio_mood import predict_audio_mood, analyze_audio_comprehensive, train_audio_mood_model, generate_emotional_intervention, analyze_mfcc_deep
 from pathlib import Path
 import csv
+import tempfile
+import os
 from datetime import datetime
 import json
 import traceback
@@ -129,6 +132,68 @@ def predict_tomorrow(req: PredictRequest):
     }
 
 from ml.insight_trends import load_insight_trends
+
+# Audio Analysis Endpoints
+@app.post("/audio/analyze")
+async def analyze_audio(file: UploadFile = File(...), mode: str = Form("emotional_venting")):
+    """Analyze uploaded audio file for mood detection"""
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_path = temp_file.name
+
+        try:
+            if mode == "emotional_venting":
+                # Exploratory ML model for emotional venting
+                mood_result = predict_audio_mood(temp_path)
+                audio_analysis = analyze_audio_comprehensive(temp_path)
+                
+                # Add intervention suggestions based on mood
+                intervention = generate_emotional_intervention(mood_result)
+                
+                return {
+                    "filename": file.filename,
+                    "mode": mode,
+                    "mood_analysis": mood_result,
+                    "audio_features": audio_analysis,
+                    "intervention": intervention
+                }
+            elif mode == "deeper_analysis":
+                # Deep MFCC analysis for structured assessment
+                mood_result = predict_audio_mood(temp_path)
+                audio_analysis = analyze_audio_comprehensive(temp_path)
+                mfcc_analysis = analyze_mfcc_deep(temp_path)
+                
+                return {
+                    "filename": file.filename,
+                    "mode": mode,
+                    "mood_analysis": mood_result,
+                    "audio_features": audio_analysis,
+                    "mfcc_analysis": mfcc_analysis
+                }
+            else:
+                return {"error": f"Unknown analysis mode: {mode}"}
+                
+        finally:
+            # Clean up temp file
+            os.unlink(temp_path)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio analysis failed: {str(e)}")
+
+@app.post("/audio/train")
+def train_audio_model(training_csv_path: str):
+    """Train the audio mood classification model"""
+    try:
+        success = train_audio_mood_model(training_csv_path)
+        if success:
+            return {"message": "Audio mood model trained successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Training failed - check training data")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 @app.get("/")
 def root():

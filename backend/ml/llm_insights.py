@@ -11,9 +11,9 @@ client = OpenAI(api_key=key)
 INSIGHTS_PATH = "logs/llm_insights.jsonl"
 
 def load_cached_insight(entry_date):
-    def load_cached_insight(entry_date):
-        if "T" in entry_date:
-          entry_date = entry_date.split("T")[0]
+    # Normalize date → YYYY-MM-DD
+    if "T" in entry_date:
+        entry_date = entry_date.split("T")[0]
 
     if not os.path.exists(INSIGHTS_PATH):
         return None
@@ -52,7 +52,7 @@ Explain *why* tomorrow may look this way and suggest one gentle reflection.
 """
 
     response = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}

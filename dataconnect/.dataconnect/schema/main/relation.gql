@@ -1,0 +1,743 @@
+extend type JournalEntry {
+  """
+  ✨ List `JournalEntryTag` objects in a one-to-many relationship (where `JournalEntryTag`.`journalEntry` is this object).
+  """
+  journalEntryTags_on_journalEntry(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: JournalEntryTag_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [JournalEntryTag_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: JournalEntryTag_Having
+  ): [JournalEntryTag!]! @fdc_generated(from: "JournalEntryTag.journalEntry", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `MFCCData` objects in a one-to-many relationship (where `MFCCData`.`journalEntry` is this object).
+  """
+  mFCCDatas_on_journalEntry(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: MFCCData_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [MFCCData_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: MFCCData_Having
+  ): [MFCCData!]! @fdc_generated(from: "MFCCData.journalEntry", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `Tag` objects using `JournalEntryTag` as the join table (a `JournalEntryTag` object exists where its `journalEntry` is this and its `tag` is that).
+  """
+  tags_via_JournalEntryTag(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: JournalEntryTag_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [JournalEntryTag_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: JournalEntryTag_Having
+  ): [Tag!]! @fdc_generated(from: "JournalEntryTag", purpose: QUERY_MULTIPLE_MANY_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "JournalEntry", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table.
+  """
+  _count: Int! @fdc_generated(from: "JournalEntry.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `audioRecordingUrl` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  audioRecordingUrl_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.audioRecordingUrl", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `entryText` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  entryText_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.entryText", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `moodRating` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  moodRating_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.moodRating", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.userId", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `moodRating` field in the `JournalEntry` table.
+  """
+  moodRating_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Int @fdc_generated(from: "JournalEntry.moodRating", purpose: QUERY_SUM)
+  """
+  ✨ Average the `moodRating` field in the `JournalEntry` table.
+  """
+  moodRating_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "JournalEntry.moodRating", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `createdAt` field in the `JournalEntry` table.
+  """
+  createdAt_min: Timestamp @fdc_generated(from: "JournalEntry.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `moodRating` field in the `JournalEntry` table.
+  """
+  moodRating_min: Int @fdc_generated(from: "JournalEntry.moodRating", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `createdAt` field in the `JournalEntry` table.
+  """
+  createdAt_max: Timestamp @fdc_generated(from: "JournalEntry.createdAt", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `moodRating` field in the `JournalEntry` table.
+  """
+  moodRating_max: Int @fdc_generated(from: "JournalEntry.moodRating", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "JournalEntry.id", purpose: ENTITY_ID)
+}
+extend type JournalEntryTag {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "JournalEntryTag", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `JournalEntryTag` table.
+  """
+  _count: Int! @fdc_generated(from: "JournalEntryTag.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntryTag` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntryTag.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntryTag` table where the `journalEntryId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  journalEntryId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntryTag.journalEntryId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntryTag` table where the `tagId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  tagId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntryTag.tagId", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `createdAt` field in the `JournalEntryTag` table.
+  """
+  createdAt_min: Timestamp @fdc_generated(from: "JournalEntryTag.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `createdAt` field in the `JournalEntryTag` table.
+  """
+  createdAt_max: Timestamp @fdc_generated(from: "JournalEntryTag.createdAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "JournalEntryTag.journalEntryId,tagId", purpose: ENTITY_ID)
+}
+extend type MFCCData {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "MFCCData", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `MFCCData` table.
+  """
+  _count: Int! @fdc_generated(from: "MFCCData.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MFCCData` table where the `audioAnalysisSummary` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  audioAnalysisSummary_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MFCCData.audioAnalysisSummary", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MFCCData` table where the `extractedAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  extractedAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MFCCData.extractedAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MFCCData` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MFCCData.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MFCCData` table where the `journalEntryId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  journalEntryId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MFCCData.journalEntryId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MFCCData` table where the `mfccVector` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  mfccVector_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MFCCData.mfccVector", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `extractedAt` field in the `MFCCData` table.
+  """
+  extractedAt_min: Timestamp @fdc_generated(from: "MFCCData.extractedAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `extractedAt` field in the `MFCCData` table.
+  """
+  extractedAt_max: Timestamp @fdc_generated(from: "MFCCData.extractedAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "MFCCData.id", purpose: ENTITY_ID)
+}
+extend type MoodPrediction {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "MoodPrediction", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table.
+  """
+  _count: Int! @fdc_generated(from: "MoodPrediction.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table where the `predictedDate` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  predictedDate_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction.predictedDate", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table where the `predictedMoodScore` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  predictedMoodScore_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction.predictedMoodScore", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table where the `predictionConfidence` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  predictionConfidence_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction.predictionConfidence", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table where the `predictionFactors` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  predictionFactors_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction.predictionFactors", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `MoodPrediction` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "MoodPrediction.userId", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `predictedMoodScore` field in the `MoodPrediction` table.
+  """
+  predictedMoodScore_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "MoodPrediction.predictedMoodScore", purpose: QUERY_SUM)
+  """
+  ✨ Sum the `predictionConfidence` field in the `MoodPrediction` table.
+  """
+  predictionConfidence_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "MoodPrediction.predictionConfidence", purpose: QUERY_SUM)
+  """
+  ✨ Average the `predictedMoodScore` field in the `MoodPrediction` table.
+  """
+  predictedMoodScore_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "MoodPrediction.predictedMoodScore", purpose: QUERY_AVG)
+  """
+  ✨ Average the `predictionConfidence` field in the `MoodPrediction` table.
+  """
+  predictionConfidence_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "MoodPrediction.predictionConfidence", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `predictedDate` field in the `MoodPrediction` table.
+  """
+  predictedDate_min: Date @fdc_generated(from: "MoodPrediction.predictedDate", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `predictedMoodScore` field in the `MoodPrediction` table.
+  """
+  predictedMoodScore_min: Float @fdc_generated(from: "MoodPrediction.predictedMoodScore", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `predictionConfidence` field in the `MoodPrediction` table.
+  """
+  predictionConfidence_min: Float @fdc_generated(from: "MoodPrediction.predictionConfidence", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `predictedDate` field in the `MoodPrediction` table.
+  """
+  predictedDate_max: Date @fdc_generated(from: "MoodPrediction.predictedDate", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `predictedMoodScore` field in the `MoodPrediction` table.
+  """
+  predictedMoodScore_max: Float @fdc_generated(from: "MoodPrediction.predictedMoodScore", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `predictionConfidence` field in the `MoodPrediction` table.
+  """
+  predictionConfidence_max: Float @fdc_generated(from: "MoodPrediction.predictionConfidence", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "MoodPrediction.id", purpose: ENTITY_ID)
+}
+extend type Tag {
+  """
+  ✨ List `JournalEntryTag` objects in a one-to-many relationship (where `JournalEntryTag`.`tag` is this object).
+  """
+  journalEntryTags_on_tag(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: JournalEntryTag_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [JournalEntryTag_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: JournalEntryTag_Having
+  ): [JournalEntryTag!]! @fdc_generated(from: "JournalEntryTag.tag", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `JournalEntry` objects using `JournalEntryTag` as the join table (a `JournalEntryTag` object exists where its `tag` is this and its `journalEntry` is that).
+  """
+  journalEntries_via_JournalEntryTag(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: JournalEntryTag_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [JournalEntryTag_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: JournalEntryTag_Having
+  ): [JournalEntry!]! @fdc_generated(from: "JournalEntryTag", purpose: QUERY_MULTIPLE_MANY_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Tag", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Tag` table.
+  """
+  _count: Int! @fdc_generated(from: "Tag.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Tag` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Tag.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Tag` table where the `tagName` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  tagName_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Tag.tagName", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Tag` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Tag.userId", purpose: QUERY_COUNT)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Tag.id", purpose: ENTITY_ID)
+}
+extend type User {
+  """
+  ✨ List `JournalEntry` objects in a one-to-many relationship (where `JournalEntry`.`user` is this object).
+  """
+  journalEntries_on_user(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: JournalEntry_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [JournalEntry_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: JournalEntry_Having
+  ): [JournalEntry!]! @fdc_generated(from: "JournalEntry.user", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `MoodPrediction` objects in a one-to-many relationship (where `MoodPrediction`.`user` is this object).
+  """
+  moodPredictions_on_user(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: MoodPrediction_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [MoodPrediction_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: MoodPrediction_Having
+  ): [MoodPrediction!]! @fdc_generated(from: "MoodPrediction.user", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `Tag` objects in a one-to-many relationship (where `Tag`.`user` is this object).
+  """
+  tags_on_user(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Tag_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Tag_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Tag_Having
+  ): [Tag!]! @fdc_generated(from: "Tag.user", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "User", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `User` table.
+  """
+  _count: Int! @fdc_generated(from: "User.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `displayName` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  displayName_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.displayName", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `email` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  email_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.email", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `lastLoginAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  lastLoginAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.lastLoginAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `photoUrl` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  photoUrl_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.photoUrl", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `createdAt` field in the `User` table.
+  """
+  createdAt_min: Timestamp @fdc_generated(from: "User.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `lastLoginAt` field in the `User` table.
+  """
+  lastLoginAt_min: Timestamp @fdc_generated(from: "User.lastLoginAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `createdAt` field in the `User` table.
+  """
+  createdAt_max: Timestamp @fdc_generated(from: "User.createdAt", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `lastLoginAt` field in the `User` table.
+  """
+  lastLoginAt_max: Timestamp @fdc_generated(from: "User.lastLoginAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "User.id", purpose: ENTITY_ID)
+}

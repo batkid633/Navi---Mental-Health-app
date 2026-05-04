@@ -23,8 +23,10 @@ class StateTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reverse the trends to show newest first
+    final reversedTrends = trends.reversed.toList();
     return Column(
-      children: trends.map((t) {
+      children: reversedTrends.map((t) {
         return ListTile(
           title: Text(t.date),
           trailing: Chip(

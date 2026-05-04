@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "832821075669",
+    "firebase_url": "https://navi-personal-3e672-default-rtdb.firebaseio.com",
+    "project_id": "navi-personal-3e672",
+    "storage_bucket": "navi-personal-3e672.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:832821075669:android:9c8fef5802f6a0f16a8c5c",
+        "android_client_info": {
+          "package_name": "com.navi.personal"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "832821075669-n8qru9oqjmpmqa0uo726vs0s42oa1ta7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASa0JlAiberDfA0RMjGBXgM5DVz70q6v8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "832821075669-n8qru9oqjmpmqa0uo726vs0s42oa1ta7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "832821075669-2dp2o5t56e2c8dm21p05bs9p4g7irfim.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.naviPersonal"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

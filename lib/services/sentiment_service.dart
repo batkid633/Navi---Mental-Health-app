@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/backend_config.dart';
 
 class SentimentService {
-  static const String _baseUrl = "http://127.0.0.1:8000";
 
   static Future<Map<String, dynamic>> analyze(String text) async {
     final response = await http.post(
-      Uri.parse("$_baseUrl/sentiment"),
+      Uri.parse("${BackendConfig.baseUrl}/sentiment"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"text": text}),
     );

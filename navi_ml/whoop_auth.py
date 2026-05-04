@@ -3,7 +3,7 @@ import secrets
 import urllib.parse
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, request
 from dotenv import load_dotenv
 
@@ -68,7 +68,7 @@ def callback():
 
     expires_in = tokens.get("expires_in")
     if expires_in is not None:
-        tokens["expires_at"] = int(datetime.utcnow().timestamp() + int(expires_in))
+        tokens["expires_at"] = int(datetime.now(timezone.utc).timestamp() + int(expires_in))
 
     # Keep strict JSON formatting for machine parse
     with open("navi_ml/tokens/whoop_tokens.json", "w") as f:

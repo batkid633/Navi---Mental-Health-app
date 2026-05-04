@@ -27,4 +27,24 @@ class JournalEntry extends HiveObject {
     this.sentimentLabel,
     this.sentimentScore,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'date': date.toIso8601String(),
+      'text': text,
+      'sentimentLabel': sentimentLabel,
+      'sentimentScore': sentimentScore,
+    };
+  }
+
+  factory JournalEntry.fromJson(Map<String, dynamic> json) {
+    return JournalEntry(
+      id: json['id'],
+      date: DateTime.parse(json['date']),
+      text: json['text'],
+      sentimentLabel: json['sentimentLabel'],
+      sentimentScore: json['sentimentScore']?.toDouble(),
+    );
+  }
 }

@@ -1,3 +1,13 @@
 fastapi
 uvicorn
 vaderSentiment
+librosa
+numpy
+scipy
+scikit-learn
+pandas
+joblib
+openai
+python-dotenv
+nltk
+firebase-admin

@@ -1,12 +1,11 @@
 import json
 import requests
 import pandas as pd
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 import os
+from dotenv import load_dotenv
 
-# --------------------
-# Config
-# --------------------
+load_dotenv()  # Load environment variables from .env file
 API_BASE = "https://api.prod.whoop.com/developer/v2"
 TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token"
 TOKEN_FILE = "navi_ml/tokens/whoop_tokens.json"
@@ -14,9 +13,9 @@ TOKEN_FILE = "navi_ml/tokens/whoop_tokens.json"
 # refresh safety margin (seconds)
 TOKEN_REFRESH_MARGIN = 60
 
-WHOOP_CSV = "whoop_daily_metrics.csv"
-FEATURES_CSV = "daily_features.csv"
-MERGED_CSV = "ml_daily_dataset.csv"
+WHOOP_CSV = "backend/data/whoop_daily_metrics.csv"
+FEATURES_CSV = "backend/data/daily_features.csv"
+MERGED_CSV = "backend/data/ml_daily_dataset.csv"
 
 
 # --------------------
@@ -39,7 +38,7 @@ def token_is_expired(token_data: dict) -> bool:
     expires_at = token_data.get("expires_at")
     if expires_at is None:
         return True
-    return datetime.utcnow().timestamp() > (expires_at - TOKEN_REFRESH_MARGIN)
+    return datetime.now(timezone.utc).timestamp() > (expires_at - TOKEN_REFRESH_MARGIN)
 
 
 def refresh_whoop_token(token_data: dict) -> dict:
@@ -66,7 +65,7 @@ def refresh_whoop_token(token_data: dict) -> dict:
 
     expires_in = new_tokens.get("expires_in")
     if expires_in is not None:
-        new_tokens["expires_at"] = int(datetime.utcnow().timestamp() + int(expires_in))
+        new_tokens["expires_at"] = int(datetime.now(timezone.utc).timestamp() + int(expires_in))
 
     save_token_data(new_tokens)
     return new_tokens
@@ -167,26 +166,26 @@ def sync_day(day_iso: str):
 def append_whoop_row(row: dict):
     df = pd.DataFrame([row])
     df.to_csv(
-        f"backend/data/{WHOOP_CSV}",
+        WHOOP_CSV,
         mode="a",
         index=False,
-        header=not os.path.exists(f"backend/data/{WHOOP_CSV}")
+        header=not os.path.exists(WHOOP_CSV)
     )
 
 # --------------------
 # Merge for ML
 # --------------------
 def merge_with_features():
-    if not os.path.exists(f"backend/data/{FEATURES_CSV}"):
+    if not os.path.exists(FEATURES_CSV):
         raise FileNotFoundError("daily_features.csv not found")
 
-    whoop_df = pd.read_csv(f"backend/data/{WHOOP_CSV}")
+    whoop_df = pd.read_csv(WHOOP_CSV)
     whoop_df = (
         whoop_df
         .sort_values("date")
         .drop_duplicates(subset="date", keep="last")
     )
-    features_df = pd.read_csv(f"backend/data/{FEATURES_CSV}")
+    features_df = pd.read_csv(FEATURES_CSV)
     whoop_df["date"] = pd.to_datetime(whoop_df["date"])
     features_df["date"] = pd.to_datetime(features_df["date"])
 
@@ -197,14 +196,14 @@ def merge_with_features():
         how="left"
     )
 
-    merged.to_csv(f"backend/data/{MERGED_CSV}", index=False)
+    merged.to_csv(MERGED_CSV, index=False)
 
 
 # --------------------
 # Entry point
 # --------------------
 if __name__ == "__main__":
-    features_df = pd.read_csv("backend/data/daily_features.csv")
+    features_df = pd.read_csv(FEATURES_CSV)
     day = features_df["date"].max()
 
     row = sync_day(day)

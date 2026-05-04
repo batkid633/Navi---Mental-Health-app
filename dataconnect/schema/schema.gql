@@ -1,0 +1,41 @@
+type User @table {
+  displayName: String!
+  createdAt: Timestamp!
+  email: String
+  photoUrl: String
+  lastLoginAt: Timestamp
+}
+
+type JournalEntry @table {
+  user: User!
+  createdAt: Timestamp!
+  entryText: String!
+  moodRating: Int
+  audioRecordingUrl: String
+}
+
+type MoodPrediction @table {
+  user: User!
+  predictedDate: Date!
+  predictedMoodScore: Float!
+  predictionConfidence: Float!
+  predictionFactors: String
+}
+
+type Tag @table {
+  user: User!
+  tagName: String!
+}
+
+type JournalEntryTag @table(key: ["journalEntry", "tag"]) {
+  journalEntry: JournalEntry!
+  tag: Tag!
+  createdAt: Timestamp!
+}
+
+type MFCCData @table {
+  journalEntry: JournalEntry!
+  extractedAt: Timestamp!
+  mfccVector: String!
+  audioAnalysisSummary: String
+}

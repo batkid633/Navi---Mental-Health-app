@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
 import 'auth_screen.dart';
@@ -16,15 +17,8 @@ class _AuthGateState extends State<AuthGate> {
   final DataService _dataService = DataService();
 
   @override
-  void initState() {
-    super.initState();
-    // Set user ID for local user
-    _dataService.setUserId(_authService.currentUserId!);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<bool>(
+    return StreamBuilder<User?>(
       stream: _authService.authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -35,7 +29,9 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        if (snapshot.hasData && snapshot.data == true) {
+        final user = snapshot.data;
+        if (user != null) {
+          _dataService.setUserId(user.uid);
           return NaviHome(dataService: _dataService, authService: _authService);
         }
 

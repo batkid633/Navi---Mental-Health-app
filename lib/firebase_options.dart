@@ -92,5 +92,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'navi-personal-3e672.firebasestorage.app',
     measurementId: 'G-BS9B69KDGY',
   );
-
 }

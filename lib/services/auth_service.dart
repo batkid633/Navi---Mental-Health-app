@@ -1,24 +1,65 @@
-// Temporarily disabled Firebase auth due to Windows compilation issues
-// Using local-only authentication for now
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
-  // Mock user for testing - always "signed in"
-  bool get isSignedIn => true;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: <String>['email'],
+  );
 
-  // Get current user - return a mock user ID
-  String? get currentUserId => 'local_user_001';
+  bool get isSignedIn => _auth.currentUser != null;
 
-  // Stream of auth state changes - always signed in
-  Stream<bool> get authStateChanges => Stream.value(true);
+  String? get currentUserId => _auth.currentUser?.uid;
 
-  // Sign in - mock implementation
-  Future<bool> signIn() async {
-    // TODO: Implement local authentication
-    return true;
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  bool get supportsGoogleSignIn {
+    return kIsWeb || defaultTargetPlatform != TargetPlatform.windows;
   }
 
-  // Sign out
+  Future<bool> signInWithGoogle() async {
+    try {
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        await _auth.signInWithPopup(provider);
+      } else {
+        final googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          return false;
+        }
+
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await _auth.signInWithCredential(credential);
+      }
+      return _auth.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> signInWithEmail(String email, String password) async {
+    try {
+      await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+      return _auth.currentUser != null;
+    } on FirebaseAuthException catch (_) {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
-    // TODO: Implement sign out
+    await _auth.signOut();
+    if (!kIsWeb) {
+      await _googleSignIn.signOut();
+    }
   }
 }

@@ -24,13 +24,15 @@ class AudioEntryAdapter extends TypeAdapter<AudioEntry> {
       duration: fields[4] as int,
       transcription: fields[5] as String?,
       mode: fields[6] as String? ?? 'emotional_venting', // Default for existing data
+      moodLabel: fields[7] as String?,
+      isTraining: fields[8] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, AudioEntry obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +46,11 @@ class AudioEntryAdapter extends TypeAdapter<AudioEntry> {
       ..writeByte(5)
       ..write(obj.transcription)
       ..writeByte(6)
-      ..write(obj.mode);
+      ..write(obj.mode)
+      ..writeByte(7)
+      ..write(obj.moodLabel)
+      ..writeByte(8)
+      ..write(obj.isTraining);
   }
 
   @override

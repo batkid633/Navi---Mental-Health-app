@@ -25,6 +25,8 @@ class _AudioPageState extends State<AudioPage> {
 
   // Mode selection
   String _selectedMode = 'emotional_venting'; // 'emotional_venting' or 'deeper_analysis'
+  bool _trainingMode = false;
+  String _selectedMoodLabel = 'neutral';
 
   // Recording state for deeper analysis
   bool _isCalibrationPhase = false;
@@ -35,7 +37,7 @@ class _AudioPageState extends State<AudioPage> {
   bool _isAnalyzing = false;
   Map<String, dynamic>? _lastAnalysis;
 
-  late Box<AudioEntry> audioBox;
+  Box<AudioEntry>? audioBox;
 
   @override
   void initState() {
@@ -59,6 +61,11 @@ class _AudioPageState extends State<AudioPage> {
   }
 
   Future<void> _startRecording() async {
+    if (audioBox == null) {
+      _showSnackBar('Preparing audio storage. Please wait a moment and try again.');
+      return;
+    }
+
     try {
       if (await _audioRecorder.hasPermission()) {
         final path = await _getRecordingPath();
@@ -124,10 +131,16 @@ class _AudioPageState extends State<AudioPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _audioRecorder.dispose();
+    super.dispose();
+  }
+
   Future<void> _stopRecording() async {
     try {
       final path = await _audioRecorder.stop();
-      if (path != null) {
+      if (path != null && audioBox != null) {
         // Save to Hive
         final audioEntry = AudioEntry(
           id: _uuid.v4(),
@@ -136,21 +149,21 @@ class _AudioPageState extends State<AudioPage> {
           fileName: path.split('/').last,
           duration: _recordingDuration,
           mode: _selectedMode,
+          moodLabel: _trainingMode ? _selectedMoodLabel : null,
+          isTraining: _trainingMode,
         );
 
-        await audioBox.add(audioEntry);
-        
-        // Sync to cloud
+        await audioBox!.add(audioEntry);
         await widget.dataService.syncAudioEntryToCloud(audioEntry);
 
-        // Show different messages based on mode
         if (_selectedMode == 'emotional_venting') {
           _showSnackBar('Emotional venting session saved! Duration: ${_formatDuration(_recordingDuration)}');
-          // Trigger intervention
           _showEmotionalIntervention();
         } else {
           _showSnackBar('Deep analysis session saved! Duration: ${_formatDuration(_recordingDuration)}');
         }
+      } else if (path == null) {
+        _showSnackBar('No recording was captured. Please try again.');
       }
     } catch (e) {
       _showSnackBar('Failed to save recording: $e');
@@ -241,6 +254,18 @@ class _AudioPageState extends State<AudioPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (audioBox == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Audio Logs'),
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Audio Logs'),
@@ -289,6 +314,43 @@ class _AudioPageState extends State<AudioPage> {
                     color: Colors.grey[600],
                   ),
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Training mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                    Switch(
+                      value: _trainingMode,
+                      onChanged: (value) {
+                        setState(() {
+                          _trainingMode = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                if (_trainingMode) ...[
+                  const SizedBox(height: 12),
+                  const Text('Select mood label', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ['neutral', 'happy', 'sad', 'angry', 'calm', 'anxious']
+                        .map((option) {
+                      final selected = option == _selectedMoodLabel;
+                      return ChoiceChip(
+                        label: Text(option[0].toUpperCase() + option.substring(1)),
+                        selected: selected,
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedMoodLabel = option;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -469,7 +531,7 @@ class _AudioPageState extends State<AudioPage> {
           // Recordings List
           Expanded(
             child: ValueListenableBuilder(
-                    valueListenable: audioBox.listenable(),
+                    valueListenable: audioBox!.listenable(),
                     builder: (context, Box<AudioEntry> box, _) {
                 if (box.values.isEmpty) {
                   return const Center(
@@ -493,7 +555,7 @@ class _AudioPageState extends State<AudioPage> {
                         leading: const Icon(Icons.audiotrack, color: Colors.blue),
                         title: Text(audioEntry.fileName),
                         subtitle: Text(
-                          '${audioEntry.date.toString().split(' ')[0]} • ${_formatDuration(audioEntry.duration)} • ${audioEntry.mode == 'emotional_venting' ? 'Venting' : 'Analysis'}',
+                          '${audioEntry.date.toString().split(' ')[0]} • ${_formatDuration(audioEntry.duration)} • ${audioEntry.mode == 'emotional_venting' ? 'Venting' : 'Analysis'}${audioEntry.isTraining ? ' • Training (${audioEntry.moodLabel ?? 'label'})' : ''}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

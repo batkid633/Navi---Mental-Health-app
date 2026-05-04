@@ -26,6 +26,12 @@ class AudioEntry extends HiveObject {
   @HiveField(6)
   String mode; // 'emotional_venting' or 'deeper_analysis'
 
+  @HiveField(7)
+  String? moodLabel;
+
+  @HiveField(8)
+  bool isTraining;
+
   AudioEntry({
     required this.id,
     required this.date,
@@ -34,6 +40,8 @@ class AudioEntry extends HiveObject {
     required this.duration,
     this.transcription,
     required this.mode,
+    this.moodLabel,
+    this.isTraining = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -45,6 +53,8 @@ class AudioEntry extends HiveObject {
       'duration': duration,
       'transcription': transcription,
       'mode': mode,
+      'moodLabel': moodLabel,
+      'isTraining': isTraining,
     };
   }
 
@@ -57,6 +67,8 @@ class AudioEntry extends HiveObject {
       duration: json['duration'],
       transcription: json['transcription'],
       mode: json['mode'],
+      moodLabel: json['moodLabel'],
+      isTraining: json['isTraining'] ?? false,
     );
   }
 }

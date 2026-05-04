@@ -59,11 +59,15 @@ This script currently:
 
 ### Run the Flutter app
 
-Once the backend is running, open a second terminal and run:
+Once the backend is running, open a second terminal and run one of:
 
 ```bash
-flutter run
+flutter pub get
+flutter run -d chrome
+flutter run -d windows
 ```
+
+If you want to verify the Firebase sign-in flow before mobile push, use `-d chrome` for web or `-d windows` for desktop.
 
 If targeting a device over WiFi, set `lib/config/backend_config.dart`:
 
@@ -97,9 +101,20 @@ Then train the model via the backend API or Python helper.
 
 ## Important notes
 
+- Firebase authentication is now enabled for web and desktop verification. The app still stores journal and audio data locally in Hive for offline use.
+- Data storage has not been migrated to Firebase yet; adding Firestore/Cloud Storage would be the next step once auth is confirmed.
 - The audio mood prediction model only works after a trained model is available.
-- Existing journal and audio data are stored locally with Hive.
 - If Hive lock errors occur on Windows, the app has logic to clear stale `.lock` files and retry.
+
+## Commit and push
+
+After verifying the app, commit your changes and push to Git:
+
+```bash
+git add .
+git commit -m "Enable Firebase auth for web/windows and clean up storage/refactor"
+git push origin main
+```
 
 ## File structure overview
 

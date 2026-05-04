@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Web",
+			"type": "shell",
+			"command": "flutter build web"
+		},
+		{
+			"label": "Build Windows",
+			"type": "shell",
+			"command": "flutter build windows"
+		}
+	]
+}

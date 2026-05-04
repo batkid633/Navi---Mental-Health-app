@@ -12,25 +12,43 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
+  bool _showEmailForm = false;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  Future<void> _signIn() async {
+  Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
+    final success = await widget.authService.signInWithGoogle();
+    setState(() => _isLoading = false);
 
-    try {
-      final success = await widget.authService.signIn();
-      if (!success) {
-        setState(() => _isLoading = false);
+    if (!success) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign in failed')),
+          const SnackBar(content: Text('Google sign in failed.')),
         );
       }
-      // If successful, AuthGate will handle navigation
-    } catch (e) {
-      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithEmail() async {
+    setState(() => _isLoading = true);
+    final email = _emailController.text;
+    final password = _passwordController.text;
+    final success = await widget.authService.signInWithEmail(email, password);
+    setState(() => _isLoading = false);
+
+    if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign in failed: $e')),
+        const SnackBar(content: Text('Email sign in failed.')),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -61,26 +79,67 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 48),
               if (_isLoading)
                 const CircularProgressIndicator()
-              else
-                ElevatedButton(
-                  onPressed: _signIn,
-                  child: const Text('Continue'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
+              else ...[
+                if (widget.authService.supportsGoogleSignIn) ...[
+                  ElevatedButton.icon(
+                    onPressed: _signInWithGoogle,
+                    icon: const Icon(Icons.login),
+                    label: const Text('Continue with Google'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                ],
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _showEmailForm = !_showEmailForm;
+                    });
+                  },
+                  child: Text(_showEmailForm ? 'Hide email sign in' : 'Sign in with email'),
                 ),
-              const SizedBox(height: 24),
-              const Text(
-                'Local mode - Firebase auth disabled due to Windows compatibility issues',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
+                if (_showEmailForm) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _signInWithEmail,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text('Sign in'),
+                  ),
+                ],
+                if (!widget.authService.supportsGoogleSignIn) ...[
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Google sign-in is unavailable on this platform. Use email and password to sign in for verification.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
             ],
           ),
         ),

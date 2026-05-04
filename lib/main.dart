@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'firebase_options.dart';
 import 'models/journal_entry.dart';
 import 'models/audio_entry.dart';
 import 'pages/journal_page.dart';
@@ -11,8 +13,12 @@ import 'services/data_service.dart';
 import 'widgets/auth_gate.dart';
 
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // Initialize Hive with the default directory (Documents) to preserve existing data
   await Hive.initFlutter();
@@ -53,14 +59,18 @@ class NaviHome extends StatefulWidget {
 
 class _NaviHomeState extends State<NaviHome> {
   int _tabIndex = 0;
-  
+  late final List<Widget> _pages;
 
-  late final List<Widget> _pages = [
-    TodayPage(dataService: widget.dataService),
-    JournalPage(dataService: widget.dataService),
-    AudioPage(dataService: widget.dataService),
-    InsightsPage(dataService: widget.dataService),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      TodayPage(dataService: widget.dataService),
+      JournalPage(dataService: widget.dataService),
+      AudioPage(dataService: widget.dataService),
+      InsightsPage(dataService: widget.dataService),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -13,7 +13,7 @@ class DataService {
   Future<Box<JournalEntry>> getJournalBox() async {
     if (_currentUserId == null) throw Exception('User not authenticated');
 
-    final boxName = 'journal_${_currentUserId}';
+    final boxName = 'journal_$_currentUserId';
     return await Hive.openBox<JournalEntry>(boxName);
   }
 
@@ -21,7 +21,7 @@ class DataService {
   Future<Box<AudioEntry>> getAudioBox() async {
     if (_currentUserId == null) throw Exception('User not authenticated');
 
-    final boxName = 'audio_${_currentUserId}';
+    final boxName = 'audio_$_currentUserId';
     return await Hive.openBox<AudioEntry>(boxName);
   }
 

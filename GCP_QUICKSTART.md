@@ -35,9 +35,7 @@ gcloud config set project $PROJECT_ID
 gcloud services enable cloudbilling.googleapis.com run.googleapis.com sqladmin.googleapis.com serviceusage.googleapis.com artifactregistry.googleapis.com
 
 # If you already have Firebase in this project, install FlutterFire CLI if needed and update your Firebase configuration:
-# dart pub global activate flutterfire_cli
-# flutterfire configure --project $PROJECT_ID
-```
+# dart pub global run flutterfire_cli:flutterfire configure --project=$PROJECT_ID
 
 ### Step 2: Database Setup (10 min)
 ```bash
@@ -61,53 +59,26 @@ cd backend/
 # Build Docker image
 docker build -t navi-backend:latest .
 
-# Create an Artifact Registry repository if this is your first deploy
-gcloud artifacts repositories create navi-backend \
-  --repository-format=docker \
-  --location=$REGION \
-  --description="Navi backend Docker images"
-
-# Let Docker push to Artifact Registry
-gcloud auth configure-docker $REGION-docker.pkg.dev
-
-# Push to Artifact Registry
-docker tag navi-backend:latest $REGION-docker.pkg.dev/$PROJECT_ID/navi-backend/navi-backend:latest
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/navi-backend/navi-backend:latest
+# Push to Container Registry
+docker tag navi-backend:latest gcr.io/$PROJECT_ID/navi-backend:latest
+docker push gcr.io/$PROJECT_ID/navi-backend:latest
 
 # Deploy to Cloud Run
-# Use --allow-unauthenticated for a consumer app backend, then enforce
-# Firebase ID token auth inside FastAPI. Do not rely on Cloud Run IAM for
-# normal app users unless every user has Google Cloud IAM access.
 gcloud run deploy navi-backend \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/navi-backend/navi-backend:latest \
+  --image=gcr.io/$PROJECT_ID/navi-backend:latest \
   --platform=managed \
   --region=$REGION \
   --memory=1Gi \
-  --allow-unauthenticated \
-  --set-env-vars=ENVIRONMENT=production,AUTH_REQUIRED=true,ALLOW_CORS_FROM=https://app.yourdomain.com
+  --no-allow-unauthenticated
 
 # Get backend URL
 gcloud run services describe navi-backend --region=$REGION --format='value(status.url)'
 ```
 
-### Step 4: Deploy Flutter Web Frontend (5 min)
-```bash
-# From the repo root
-flutter pub get
-flutter build web --release
-firebase deploy --only hosting
-```
-
-For local testing, set the backend URL inside the app settings screen. For production, point the app at your Cloud Run URL or your `api.yourdomain.com` URL once the custom backend domain is configured.
-
-### Step 5: Custom Domain Shape
-
-Recommended domain layout:
-
-- `app.yourdomain.com` or `www.yourdomain.com` -> Firebase Hosting for the Flutter web app
-- `api.yourdomain.com` -> Cloud Run backend, usually through a Google Cloud external Application Load Balancer for production
-
-If the domain is purchased through Squarespace, Squarespace remains the registrar. You edit DNS records in Squarespace and paste in the TXT, A, AAAA, or CNAME records that Firebase Hosting and Google Cloud give you.
+### Step 4: Update Flutter App (5 min)
+1. Copy backend URL from Step 3
+2. Update `lib/config/gcp_config.dart` with new backend URL
+3. Run `flutter pub get`
 
 ---
 
@@ -173,9 +144,6 @@ If the domain is purchased through Squarespace, Squarespace remains the registra
 ## 🔐 Security Best Practices
 
 ### Before Going Live
-- [ ] Firebase ID token auth enforced on sensitive backend routes (`AUTH_REQUIRED=true`)
-- [ ] Cloud Run `ALLOW_CORS_FROM` restricted to real frontend domains
-- [ ] Cloud Run service account has only the IAM roles it needs
 - [ ] Enable Cloud SQL SSL/TLS
 - [ ] Set up VPC peering between Cloud Run and Cloud SQL
 - [ ] Configure IAM roles properly
@@ -184,9 +152,6 @@ If the domain is purchased through Squarespace, Squarespace remains the registra
 - [ ] Review HIPAA compliance settings
 - [ ] Configure Secret Manager for sensitive data
 - [ ] Set up Cloud Security Command Center
-- [ ] Move durable journal/audio metadata out of local files and into Firestore/Data Connect/Cloud SQL
-- [ ] Store raw audio in Cloud Storage, not inside the Cloud Run container
-- [ ] Add user data export, account deletion, consent, and retention policies
 
 ### Ongoing
 - [ ] Monitor error rates and latency
@@ -217,51 +182,29 @@ gcloud run services logs read navi-backend --limit=50 --region=$REGION
 - CPU usage (target: <70%)
 - Memory usage (target: <80%)
 - Database connection count
-- Per-user ML feature sync success/failure
-- LLM fallback insight rate
 
 ---
 
 ## 🔄 Deployment Workflow
 
-### What To Deploy After Each Kind Of Change
-
-| Changed thing | Deploy action |
-|---------------|---------------|
-| Backend Python code, backend dependencies, Dockerfile, ML runtime code | Rebuild Docker image, push to Artifact Registry, deploy Cloud Run |
-| Flutter web UI or client service code | `flutter build web --release`, then `firebase deploy --only hosting` |
-| Android/iOS app code | Build and submit a new mobile release through app stores/TestFlight/internal testing |
-| Environment variables, secrets, CORS domains | Update Cloud Run env vars or Secret Manager; usually no code rebuild |
-| Firestore or Storage security rules | `firebase deploy --only firestore:rules` or `firebase deploy --only storage` |
-| Database schema or Data Connect changes | Deploy the schema/rules and run migrations carefully |
-| Static docs only | No cloud deploy unless the docs are hosted publicly |
-
 ### Development Flow
 ```bash
 # 1. Make changes locally
 # 2. Test locally:
-cd backend && python -m uvicorn app:app --reload
+cd backend && python -m uvicorn app:main --reload
 
-# 3. Build & push to Artifact Registry
+# 3. Build & push to Container Registry
 docker build -t navi-backend:latest .
-docker tag navi-backend:latest $REGION-docker.pkg.dev/$PROJECT_ID/navi-backend/navi-backend:latest
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/navi-backend/navi-backend:latest
+docker tag navi-backend:latest gcr.io/$PROJECT_ID/navi-backend:latest
+docker push gcr.io/$PROJECT_ID/navi-backend:latest
 
 # 4. Deploy to Cloud Run
-gcloud run deploy navi-backend \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/navi-backend/navi-backend:latest \
-  --region=$REGION \
-  --allow-unauthenticated
+gcloud run deploy navi-backend --image=gcr.io/$PROJECT_ID/navi-backend:latest
 
-# 5. Deploy web frontend if Flutter web changed
-flutter build web --release
-firebase deploy --only hosting
-
-# 6. Test public health endpoint
-curl https://navi-backend-xyz-uc.a.run.app/health
+# 5. Test in production
+curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  https://navi-backend-xyz-uc.a.run.app/health
 ```
-
-Sensitive endpoints now expect a Firebase ID token in `Authorization: Bearer <token>`. The Flutter app sends this automatically after sign-in. `GET /health`, `GET /ready`, and the WHOOP OAuth callback stay public because monitoring systems and WHOOP cannot attach a signed-in app user's Firebase token.
 
 ### CI/CD (Optional - Cloud Build)
 ```bash
@@ -303,7 +246,7 @@ psql -h 127.0.0.1 -U navi_admin -d navi_db
 bool online = await ConnectivityHelper().isOnline();
 
 // Verify backend URL
-print(BackendConfig.baseUrl);
+print(GcpConfig.backendUrl);
 
 // Test health endpoint
 bool healthy = await GcpApiService().healthCheck();
@@ -328,9 +271,6 @@ gcloud pubsub topics publish push-notifications \
 
 ### Pre-Deployment
 - [ ] All environment variables configured
-- [ ] `ENVIRONMENT=production`
-- [ ] `AUTH_REQUIRED=true`
-- [ ] `ALLOW_CORS_FROM` contains only production frontend domains
 - [ ] Database schema initialized
 - [ ] Secrets stored in Secret Manager
 - [ ] Docker image tested locally
@@ -341,9 +281,6 @@ gcloud pubsub topics publish push-notifications \
 
 ### Deployment
 - [ ] Cloud Run service deployed
-- [ ] Firebase Hosting deployed for Flutter web
-- [ ] Firestore rules deployed: `firebase deploy --only firestore:rules`
-- [ ] Storage rules deployed: `firebase deploy --only storage`
 - [ ] Database running and accessible
 - [ ] Push notifications working
 - [ ] Firebase Cloud Messaging configured
@@ -432,7 +369,6 @@ gcloud compute project-info describe --project=$PROJECT_ID
 ## 📝 Notes
 
 - Keep environment variables secure - never commit `.env.production`
-- For local backend runs, edit `.env` or set shell environment variables. `.env.production` is a production template and is not automatically read by `flutter run`.
 - Test thoroughly in staging before production deployment
 - Monitor costs in the first month - GCP bills based on usage
 - Set up billing alerts to avoid surprises

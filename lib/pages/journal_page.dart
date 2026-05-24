@@ -20,7 +20,7 @@ class _JournalPageState extends State<JournalPage> {
   String? _error;
 
   final TextEditingController _controller = TextEditingController();
-  late Box<JournalEntry> journalBox;
+  Box<JournalEntry>? journalBox;
 
   @override
   void initState() {
@@ -59,10 +59,11 @@ class _JournalPageState extends State<JournalPage> {
         sentimentLabel: sentiment["label"] as String,
       );
 
-      await journalBox.put(entry.id, entry);
+      await journalBox!.put(entry.id, entry);
       
       // Sync to cloud
       await widget.dataService.syncJournalEntryToCloud(entry);
+      await widget.dataService.syncJournalFeaturesToBackend(journalBox!);
       
       _controller.clear();
     } catch (e) {
@@ -126,8 +127,13 @@ class _JournalPageState extends State<JournalPage> {
 
                     await _addEntry(); // ✅ ACTUALLY CALL IT
 
-                    final file = await MLExportService.exportDailyFeatures();
-                    debugPrint('ML export saved to: ${file.path}');
+                    final currentBox = journalBox;
+                    if (currentBox != null) {
+                      final filePath = await MLExportService.exportDailyFeatures(currentBox);
+                      if (filePath != null) {
+                        debugPrint('ML export saved to: $filePath');
+                      }
+                    }
 
                     setState(() => _isLoading = false);
                   },
@@ -142,10 +148,12 @@ class _JournalPageState extends State<JournalPage> {
           const Divider(),
 
           Expanded(
-            child: ValueListenableBuilder<Box<JournalEntry>>(
-              valueListenable: journalBox.listenable(),
-              builder: (context, box, _) {
-                final entries = box.values.toList().reversed.toList();
+            child: journalBox == null
+                ? const Center(child: CircularProgressIndicator())
+                : ValueListenableBuilder<Box<JournalEntry>>(
+                    valueListenable: journalBox!.listenable(),
+                    builder: (context, box, _) {
+                      final entries = box.values.toList().reversed.toList();
 
                 if (entries.isEmpty) {
                   return const Center(child: Text("No journal entries yet."));
@@ -177,8 +185,11 @@ class _JournalPageState extends State<JournalPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                JournalDetailPage(entryId: entry.id),
+                            builder: (_) => JournalDetailPage(
+                              entryId: entry.id,
+                              journalBox: journalBox!,
+                              dataService: widget.dataService,
+                            ),
                           ),
                         );
                       },

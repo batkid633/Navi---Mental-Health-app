@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
@@ -15,6 +16,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   final AuthService _authService = AuthService();
   final DataService _dataService = DataService();
+  bool _localTestMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,30 @@ class _AuthGateState extends State<AuthGate> {
           return NaviHome(dataService: _dataService, authService: _authService);
         }
 
-        return AuthScreen(authService: _authService);
+        if (_localTestMode) {
+          _dataService.clearUserId();
+          return NaviHome(
+            dataService: _dataService,
+            authService: _authService,
+            onSignOut: () async {
+              setState(() {
+                _localTestMode = false;
+              });
+            },
+          );
+        }
+
+        _dataService.clearUserId();
+        return AuthScreen(
+          authService: _authService,
+          onContinueInLocalTestMode: kDebugMode
+              ? () {
+                  setState(() {
+                    _localTestMode = true;
+                  });
+                }
+              : null,
+        );
       },
     );
   }

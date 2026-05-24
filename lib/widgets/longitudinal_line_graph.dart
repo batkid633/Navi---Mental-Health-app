@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/insight_trend.dart';
 
 class LongitudinalLineGraph extends StatelessWidget {
@@ -68,7 +69,30 @@ class LongitudinalLineGraph extends StatelessWidget {
                       ),
                     ),
                     bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: trends.length > 7 ? (trends.length / 7).ceil().toDouble() : 1,
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index >= 0 && index < trends.length) {
+                            try {
+                              final date = DateTime.parse(trends[index].date);
+                              final formatter = DateFormat('MM/dd');
+                              return Text(
+                                formatter.format(date),
+                                style: const TextStyle(fontSize: 10),
+                              );
+                            } catch (e) {
+                              return Text(
+                                '${index + 1}',
+                                style: const TextStyle(fontSize: 10),
+                              );
+                            }
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
                     ),
                     rightTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: false),

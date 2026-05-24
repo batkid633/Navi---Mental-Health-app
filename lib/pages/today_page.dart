@@ -20,7 +20,8 @@ class TodayPage extends StatefulWidget {
 
 class _TodayPageState extends State<TodayPage> {
   late Future<TomorrowOutlook?> _outlookFuture;
-  late Box<JournalEntry> journalBox;
+  Box<JournalEntry>? journalBox;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -31,7 +32,9 @@ class _TodayPageState extends State<TodayPage> {
 
   Future<void> _initBox() async {
     journalBox = await widget.dataService.getJournalBox();
-    setState(() {});
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _loadOutlook({bool force = false}) {
@@ -43,15 +46,28 @@ class _TodayPageState extends State<TodayPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading || journalBox == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Today')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return ValueListenableBuilder<Box<JournalEntry>>(
-      valueListenable: journalBox.listenable(),
+      valueListenable: journalBox!.listenable(),
       builder: (context, box, _) {
         final dailyAvg = InsightsService.dailyAverageSentiment(box);
 
         // Guard: not enough data yet
         if (dailyAvg.isEmpty) {
-          return const Center(
-            child: Text("Not enough data yet."),
+          final entryCount = box.values.length;
+          return Center(
+            child: Text(
+              entryCount == 0
+                  ? "Not enough data yet. Add a journal entry to begin tracking your mood."
+                  : "Journal entries exist, but no sentiment scores are available yet. Make sure your backend is running so Today insights can compute mood data.",
+              textAlign: TextAlign.center,
+            ),
           );
         }
 

@@ -41,55 +41,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDaWi52bUYGuqbeKwecsHXhhY_c9HkN8To',
-    appId: '1:832821075669:web:97ec9c2bb7a8a44d6a8c5c',
-    messagingSenderId: '832821075669',
-    projectId: 'navi-personal-3e672',
-    authDomain: 'navi-personal-3e672.firebaseapp.com',
-    databaseURL: 'https://navi-personal-3e672-default-rtdb.firebaseio.com',
-    storageBucket: 'navi-personal-3e672.firebasestorage.app',
-    measurementId: 'G-N9CNC926WK',
+    apiKey: 'AIzaSyDln5iFRSDKz6kWmjzP_22uZgurp68ZELQ',
+    appId: '1:712966180400:web:8efc7959836c0cc23ba7f5',
+    messagingSenderId: '712966180400',
+    projectId: 'project-bc878e6c-6f53-4f24-88a',
+    authDomain: 'project-bc878e6c-6f53-4f24-88a.firebaseapp.com',
+    storageBucket: 'project-bc878e6c-6f53-4f24-88a.firebasestorage.app',
+    measurementId: 'G-30TEKY19JQ',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyASa0JlAiberDfA0RMjGBXgM5DVz70q6v8',
-    appId: '1:832821075669:android:9c8fef5802f6a0f16a8c5c',
-    messagingSenderId: '832821075669',
-    projectId: 'navi-personal-3e672',
-    databaseURL: 'https://navi-personal-3e672-default-rtdb.firebaseio.com',
-    storageBucket: 'navi-personal-3e672.firebasestorage.app',
+    apiKey: 'AIzaSyCHSdclU8h_kRCalHtstvw2xgwvkKGkRkg',
+    appId: '1:712966180400:android:7de6d6f4a94a33713ba7f5',
+    messagingSenderId: '712966180400',
+    projectId: 'project-bc878e6c-6f53-4f24-88a',
+    storageBucket: 'project-bc878e6c-6f53-4f24-88a.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA8aiHF8xC_U7rDIRueFJMLCC-ho7H3Wws',
-    appId: '1:832821075669:ios:1bb0918cb81251fc6a8c5c',
-    messagingSenderId: '832821075669',
-    projectId: 'navi-personal-3e672',
-    databaseURL: 'https://navi-personal-3e672-default-rtdb.firebaseio.com',
-    storageBucket: 'navi-personal-3e672.firebasestorage.app',
-    iosClientId: '832821075669-2dp2o5t56e2c8dm21p05bs9p4g7irfim.apps.googleusercontent.com',
+    apiKey: 'AIzaSyDukqWdjSTBSyAqZl5padytxPVWxgLDNs4',
+    appId: '1:712966180400:ios:4ae2e8c4c70a2b683ba7f5',
+    messagingSenderId: '712966180400',
+    projectId: 'project-bc878e6c-6f53-4f24-88a',
+    storageBucket: 'project-bc878e6c-6f53-4f24-88a.firebasestorage.app',
     iosBundleId: 'com.example.naviPersonal',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA8aiHF8xC_U7rDIRueFJMLCC-ho7H3Wws',
-    appId: '1:832821075669:ios:1bb0918cb81251fc6a8c5c',
-    messagingSenderId: '832821075669',
-    projectId: 'navi-personal-3e672',
-    databaseURL: 'https://navi-personal-3e672-default-rtdb.firebaseio.com',
-    storageBucket: 'navi-personal-3e672.firebasestorage.app',
-    iosClientId: '832821075669-2dp2o5t56e2c8dm21p05bs9p4g7irfim.apps.googleusercontent.com',
+    apiKey: 'AIzaSyDukqWdjSTBSyAqZl5padytxPVWxgLDNs4',
+    appId: '1:712966180400:ios:4ae2e8c4c70a2b683ba7f5',
+    messagingSenderId: '712966180400',
+    projectId: 'project-bc878e6c-6f53-4f24-88a',
+    storageBucket: 'project-bc878e6c-6f53-4f24-88a.firebasestorage.app',
     iosBundleId: 'com.example.naviPersonal',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDaWi52bUYGuqbeKwecsHXhhY_c9HkN8To',
-    appId: '1:832821075669:web:f4ad9c32cb2db80a6a8c5c',
-    messagingSenderId: '832821075669',
-    projectId: 'navi-personal-3e672',
-    authDomain: 'navi-personal-3e672.firebaseapp.com',
-    databaseURL: 'https://navi-personal-3e672-default-rtdb.firebaseio.com',
-    storageBucket: 'navi-personal-3e672.firebasestorage.app',
-    measurementId: 'G-BS9B69KDGY',
+    apiKey: 'AIzaSyDln5iFRSDKz6kWmjzP_22uZgurp68ZELQ',
+    appId: '1:712966180400:web:219361aba509b51e3ba7f5',
+    messagingSenderId: '712966180400',
+    projectId: 'project-bc878e6c-6f53-4f24-88a',
+    authDomain: 'project-bc878e6c-6f53-4f24-88a.firebaseapp.com',
+    storageBucket: 'project-bc878e6c-6f53-4f24-88a.firebasestorage.app',
+    measurementId: 'G-2BRM2M8SQ4',
   );
 }

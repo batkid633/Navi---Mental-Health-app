@@ -48,3 +48,8 @@ app.*.map.json
 .env
 .env.*
 *.env
+navi_ml/tokens/
+backend/logs/*.jsonl
+backend/logs/*.csv
+backend/user_runtime_data/
+credentials/

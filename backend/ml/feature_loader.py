@@ -1,10 +1,15 @@
 import pandas as pd
 from pathlib import Path
+try:
+    from user_data import active_dataset_path
+except ModuleNotFoundError:
+    from ..user_data import active_dataset_path
 
-FEATURES_CSV = Path("data/ml_daily_dataset.csv")
+FEATURES_CSV = Path(__file__).parent.parent / "data" / "ml_daily_dataset.csv"
 
-def load_features_for_date(date_iso: str) -> dict:
-    df = pd.read_csv(FEATURES_CSV)
+def load_features_for_date(date_iso: str, user_id: str | None = None) -> dict:
+    dataset_path = active_dataset_path(user_id) if user_id else FEATURES_CSV
+    df = pd.read_csv(dataset_path)
 
     # Ensure date column is datetime
     df["date"] = pd.to_datetime(df["date"], errors="coerce")

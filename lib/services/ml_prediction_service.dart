@@ -10,7 +10,7 @@ class MLPredictionService {
 }) async {
   final response = await http.post(
     Uri.parse("${BackendConfig.baseUrl}/predict/tomorrow"),
-    headers: {"Content-Type": "application/json"},
+    headers: await BackendConfig.getAuthHeaders(),
     body: jsonEncode({
       "date": date,
       "force_reload": forceReload,

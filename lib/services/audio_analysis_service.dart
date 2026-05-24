@@ -1,25 +1,21 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../config/backend_config.dart';
+import '../utils/audio_multipart.dart';
 
 class AudioAnalysisService {
-  static Future<Map<String, dynamic>> analyzeAudio(File audioFile, {String mode = 'emotional_venting'}) async {
+  static Future<Map<String, dynamic>> analyzeAudio(dynamic audioFile, {String mode = 'emotional_venting'}) async {
     try {
       // Create multipart request
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('${BackendConfig.baseUrl}/audio/analyze'),
       );
+      request.headers.addAll(await BackendConfig.getAuthHeaders());
 
       // Add audio file
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          audioFile.path,
-          filename: audioFile.path.split('/').last,
-        ),
-      );
+      final audioPath = audioFile is String ? audioFile : audioFile.path as String;
+      request.files.add(await audioMultipartFileFromPath(audioPath));
 
       // Add mode parameter
       request.fields['mode'] = mode;
@@ -47,7 +43,7 @@ class AudioAnalysisService {
     try {
       final response = await http.post(
         Uri.parse('${BackendConfig.baseUrl}/audio/train'),
-        headers: {'Content-Type': 'application/json'},
+        headers: await BackendConfig.getAuthHeaders(),
         body: json.encode({'training_csv_path': trainingCsvPath}),
       );
 

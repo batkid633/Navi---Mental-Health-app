@@ -3,9 +3,9 @@ import numpy as np
 from ml.longitudinal_features import build_longitudinal_features
 from ml.longitudinal_model import train_state_model
 
-def load_insight_trends(days=30):
+def load_insight_trends(days=30, user_id: str | None = None):
 
-    df = build_longitudinal_features()
+    df = build_longitudinal_features(user_id)
 
     if df is None or len(df) == 0:
         return []

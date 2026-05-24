@@ -10,6 +10,26 @@
 			"label": "Build Windows",
 			"type": "shell",
 			"command": "flutter build windows"
+		},
+		{
+			"label": "Build Windows",
+			"type": "shell",
+			"command": "flutter build windows"
+		},
+		{
+			"label": "Build Windows",
+			"type": "shell",
+			"command": "flutter build windows"
+		},
+		{
+			"label": "Build Windows",
+			"type": "shell",
+			"command": "flutter build windows"
+		},
+		{
+			"label": "Build Windows",
+			"type": "shell",
+			"command": "flutter build windows"
 		}
 	]
 }

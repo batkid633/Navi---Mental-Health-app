@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-DATA_DIR = Path("backend/data")
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 def build_features(date_iso: str, journal_sentiment: float):
     whoop = pd.read_csv(DATA_DIR / "whoop_daily_metrics.csv")

@@ -1,0 +1,370 @@
+# Cloud Run Deployment Configuration for Navi Backend
+
+# This file contains the configuration for deploying the Navi backend
+# to Google Cloud Run with all necessary settings
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: navi-backend
+  namespace: default
+  annotations:
+    run.googleapis.com/client-name: gcloud
+    run.googleapis.com/client-version: latest
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/cloudsql-instances: "navi-personal-gcp:us-central1:navi-postgresql"
+        run.googleapis.com/memory: "1Gi"
+        run.googleapis.com/cpu: "1"
+    spec:
+      serviceAccountName: navi-cloud-run
+      containers:
+      - image: us-central1-docker.pkg.dev/navi-personal-gcp/navi-backend/navi-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: AUTH_REQUIRED
+          value: "true"
+        - name: ALLOW_CORS_FROM
+          value: "https://app.yourdomain.com,https://www.yourdomain.com"
+        - name: CLOUDSQL_CONNECTION_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-connection-name
+              key: latest
+        - name: DATABASE_USER
+          value: "navi_admin"
+        - name: DATABASE_NAME
+          value: "navi_db"
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-password
+              key: latest
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-url
+              key: latest
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-api-key
+              key: latest
+        - name: WHOOP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: whoop-api-key
+              key: latest
+        - name: FIREBASE_ADMIN_SDK_KEY
+          valueFrom:
+            secretKeyRef:
+              name: firebase-admin-key
+              key: latest
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+          requests:
+            memory: "512Mi"
+            cpu: "0.5"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      timeoutSeconds: 3600
+
+  traffic:
+  - percent: 100
+    latestRevision: true
+
+---
+# Service Account for Cloud Run
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMServiceAccount
+metadata:
+  name: navi-cloud-run
+spec:
+  displayName: "Navi Cloud Run Service Account"
+
+---
+# IAM Binding for Cloud SQL Client
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicy
+metadata:
+  name: navi-cloud-run-cloudsql
+spec:
+  resourceRef:
+    apiVersion: iam.cnrm.cloud.google.com/v1beta1
+    kind: IAMServiceAccount
+    name: navi-cloud-run
+  bindings:
+  - role: roles/cloudsql.client
+    members:
+    - serviceAccount:navi-cloud-run@navi-personal-gcp.iam.gserviceaccount.com
+
+---
+# IAM Binding for Secret Manager Access
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicy
+metadata:
+  name: navi-cloud-run-secrets
+spec:
+  resourceRef:
+    apiVersion: iam.cnrm.cloud.google.com/v1beta1
+    kind: IAMServiceAccount
+    name: navi-cloud-run
+  bindings:
+  - role: roles/secretmanager.secretAccessor
+    members:
+    - serviceAccount:navi-cloud-run@navi-personal-gcp.iam.gserviceaccount.com
+
+---
+# Cloud Run Service Configuration
+apiVersion: run.cnrm.cloud.google.com/v1beta1
+kind: RunService
+metadata:
+  name: navi-backend
+spec:
+  location: us-central1
+  ingress: internal-and-cloud-load-balancing
+  launchStage: GA
+
+  template:
+    spec:
+      serviceAccountRef:
+        name: navi-cloud-run
+      containerConcurrency: 100
+      timeoutSeconds: 3600
+      maxInstances: 1000
+      minInstances: 1
+
+      containers:
+      - image: us-central1-docker.pkg.dev/navi-personal-gcp/navi-backend/navi-backend:latest
+        ports:
+        - containerPort: 8080
+        
+        env:
+        - name: PORT
+          value: "8080"
+        - name: ENVIRONMENT
+          value: production
+        - name: AUTH_REQUIRED
+          value: "true"
+        - name: ALLOW_CORS_FROM
+          value: "https://app.yourdomain.com,https://www.yourdomain.com"
+        
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: "1"
+
+      volumes:
+      - name: cloud-sql-socket
+        emptyDir:
+          sizeLimit: 1Gi
+
+---
+# Autoscaling Policy
+apiVersion: autoscaling.cnrm.cloud.google.com/v1beta1
+kind: ComputeAutoscaler
+metadata:
+  name: navi-backend-autoscaler
+spec:
+  autoscalingPolicy:
+    minReplicas: 1
+    maxReplicas: 1000
+    cpuUtilization:
+      targetUtilization: 0.7
+    customMetricUtilizations:
+    - metric: run.googleapis.com/request_latencies
+      targetValue: 500  # Target 500ms latency
+  target:
+    apiVersion: run.cnrm.cloud.google.com/v1beta1
+    kind: RunService
+    name: navi-backend
+
+---
+# Cloud Armor Security Policy
+apiVersion: compute.cnrm.cloud.google.com/v1beta1
+kind: ComputeSecurityPolicy
+metadata:
+  name: navi-backend-security-policy
+spec:
+  description: "Security policy for Navi backend"
+  
+  rules:
+  # Block requests with SQL injection patterns
+  - action: deny(403)
+    priority: 100
+    description: "Block SQL injection"
+    match:
+      expr:
+        expression: 'evaluatePreconfiguredExpr("sqli-stable", ["owasp-crs-v030001-id942251-sqli", "owasp-crs-v030001-id942420-sqli"])'
+
+  # Block requests with XSS patterns
+  - action: deny(403)
+    priority: 101
+    description: "Block XSS"
+    match:
+      expr:
+        expression: 'evaluatePreconfiguredExpr("xss-stable", ["owasp-crs-v030001-id941130-xss"])'
+
+  # Rate limiting: 100 requests per minute from single IP
+  - action: rate_based_ban
+    priority: 102
+    description: "Rate limiting"
+    match:
+      versionedExpr: "CEL"
+      expr: origin.ip == origin.ip
+    rateLimitOptions:
+      conformAction: allow
+      exceedAction: deny(429)
+      rateLimitSessionToken: API_KEY
+      banDurationSec: 60
+      enforceOnKey: ALL
+      banThresholdCount: 100
+      banThresholdIntervalSec: 60
+
+  # Allow traffic from Firebase (for mobile app)
+  - action: allow
+    priority: 1000
+    description: "Allow traffic"
+    match:
+      versionedExpr: "CEL"
+
+---
+# Cloud Monitoring Dashboard
+apiVersion: monitoring.cnrm.cloud.google.com/v1beta1
+kind: MonitoringDashboard
+metadata:
+  name: navi-backend-dashboard
+spec:
+  gridLayout:
+    widgets:
+    - title: "Request Rate"
+      xyChart:
+        dataSources:
+        - timeSeriesQuery:
+            timeSeriesFilter:
+              filter: 'resource.type="cloud_run_revision" AND metric.type="run.googleapis.com/request_count"'
+
+    - title: "Error Rate"
+      xyChart:
+        dataSources:
+        - timeSeriesQuery:
+            timeSeriesFilter:
+              filter: 'resource.type="cloud_run_revision" AND metric.type="run.googleapis.com/request_latencies"'
+
+    - title: "Memory Usage"
+      xyChart:
+        dataSources:
+        - timeSeriesQuery:
+            timeSeriesFilter:
+              filter: 'resource.type="cloud_run_revision" AND metric.type="run.googleapis.com/container_memory_allocations"'
+
+    - title: "CPU Usage"
+      xyChart:
+        dataSources:
+        - timeSeriesQuery:
+            timeSeriesFilter:
+              filter: 'resource.type="cloud_run_revision" AND metric.type="run.googleapis.com/container_cpu_allocations"'
+
+---
+# Alert Policy for High Error Rate
+apiVersion: monitoring.cnrm.cloud.google.com/v1beta1
+kind: MonitoringAlertPolicy
+metadata:
+  name: navi-backend-high-error-rate
+spec:
+  displayName: "High error rate on Navi backend"
+  conditions:
+  - displayName: "Error rate > 5%"
+    conditionThreshold:
+      filter: 'resource.type="cloud_run_revision" AND metric.type="run.googleapis.com/request_count" AND metric.response_code_class="5xx"'
+      comparison: COMPARISON_GT
+      thresholdValue: 0.05
+      duration: 300s
+
+  notificationChannels:
+  - projects/navi-personal-gcp/notificationChannels/12345678  # Update with actual channel
+
+  alertStrategy:
+    autoClose: 1800s
+
+---
+# Cloud SQL Instance
+apiVersion: sqladmin.cnrm.cloud.google.com/v1beta1
+kind: SQLInstance
+metadata:
+  name: navi-postgresql
+spec:
+  region: us-central1
+  databaseVersion: POSTGRES_15
+  settings:
+    tier: db-f1-micro
+    availabilityType: REGIONAL
+    backupConfiguration:
+      enabled: true
+      startTime: "03:00"
+      pointInTimeRecoveryEnabled: true
+      transactionLogRetentionDays: 7
+    databaseFlags:
+    - name: log_checkpoints
+      value: "on"
+    - name: log_connections
+      value: "on"
+    - name: log_disconnections
+      value: "on"
+    ipConfiguration:
+      requireSsl: true
+      ipv4Enabled: false
+      privateNetwork: projects/navi-personal-gcp/global/networks/navi-vpc
+    insightsConfig:
+      queryInsightsEnabled: true
+      queryPlansPerMinute: 5
+      recordApplicationTags: true
+      recordClientAddress: true
+
+---
+# Cloud SQL Database
+apiVersion: sqladmin.cnrm.cloud.google.com/v1beta1
+kind: SQLDatabase
+metadata:
+  name: navi-db
+spec:
+  instanceRef:
+    name: navi-postgresql
+  charset: UTF8
+
+---
+# Cloud SQL User
+apiVersion: sqladmin.cnrm.cloud.google.com/v1beta1
+kind: SQLUser
+metadata:
+  name: navi-admin
+spec:
+  instanceRef:
+    name: navi-postgresql
+  password:
+    valueFrom:
+      secretKeyRef:
+        name: db-password
+        key: password

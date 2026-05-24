@@ -2,8 +2,12 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from sklearn.linear_model import LinearRegression
+try:
+    from user_data import active_dataset_path
+except ModuleNotFoundError:
+    from ..user_data import active_dataset_path
 
-DATA_DIR = Path("./data")
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 def compute_slope(series):
     y = series.values
@@ -17,9 +21,9 @@ def compute_slope(series):
     return model.coef_[0]
 
 
-def build_longitudinal_features():
+def build_longitudinal_features(user_id: str | None = None):
 
-    path = DATA_DIR / "ml_daily_dataset.csv"
+    path = active_dataset_path(user_id)
     
     if not path.exists():
         return None

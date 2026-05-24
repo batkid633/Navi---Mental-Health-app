@@ -1,12 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:io';
 import '../models/audio_entry.dart';
 import '../services/audio_analysis_service.dart';
 import '../services/data_service.dart';
+import '../utils/file_io.dart' if (dart.library.html) '../utils/file_io_web.dart';
+import '../utils/recording_path.dart'
+    if (dart.library.html) '../utils/recording_path_web.dart';
 
 class AudioPage extends StatefulWidget {
   final DataService dataService;
@@ -50,16 +52,6 @@ class _AudioPageState extends State<AudioPage> {
     setState(() {});
   }
 
-  Future<String> _getRecordingPath() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final audioDir = Directory('${directory.path}/audio');
-    if (!await audioDir.exists()) {
-      await audioDir.create(recursive: true);
-    }
-    final fileName = '${_uuid.v4()}.wav';
-    return '${audioDir.path}/$fileName';
-  }
-
   Future<void> _startRecording() async {
     if (audioBox == null) {
       _showSnackBar('Preparing audio storage. Please wait a moment and try again.');
@@ -68,7 +60,7 @@ class _AudioPageState extends State<AudioPage> {
 
     try {
       if (await _audioRecorder.hasPermission()) {
-        final path = await _getRecordingPath();
+        final path = await getRecordingPath(_uuid);
 
         if (_selectedMode == 'deeper_analysis') {
           // Start with calibration phase
@@ -141,19 +133,20 @@ class _AudioPageState extends State<AudioPage> {
     try {
       final path = await _audioRecorder.stop();
       if (path != null && audioBox != null) {
+        final fileName = _fileNameFromPath(path);
         // Save to Hive
         final audioEntry = AudioEntry(
           id: _uuid.v4(),
           date: DateTime.now(),
           filePath: path,
-          fileName: path.split('/').last,
+          fileName: fileName,
           duration: _recordingDuration,
           mode: _selectedMode,
           moodLabel: _trainingMode ? _selectedMoodLabel : null,
           isTraining: _trainingMode,
         );
 
-        await audioBox!.add(audioEntry);
+        await audioBox!.put(audioEntry.id, audioEntry);
         await widget.dataService.syncAudioEntryToCloud(audioEntry);
 
         if (_selectedMode == 'emotional_venting') {
@@ -182,6 +175,17 @@ class _AudioPageState extends State<AudioPage> {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  String _fileNameFromPath(String path) {
+    final uri = Uri.tryParse(path);
+    final lastSegment = uri?.pathSegments.isNotEmpty == true
+        ? uri!.pathSegments.last
+        : path.split('/').last;
+    if (lastSegment.trim().isEmpty || path.startsWith('blob:')) {
+      return 'web-recording-${DateTime.now().millisecondsSinceEpoch}.wav';
+    }
+    return lastSegment;
   }
 
   void _showSnackBar(String message) {
@@ -231,7 +235,7 @@ class _AudioPageState extends State<AudioPage> {
     });
 
     try {
-      final file = File(audioPath);
+      final file = kIsWeb ? audioPath : getFile(audioPath);
       final analysis = await AudioAnalysisService.analyzeAudio(file, mode: mode);
 
       setState(() {
@@ -410,6 +414,15 @@ class _AudioPageState extends State<AudioPage> {
                     textStyle: const TextStyle(fontSize: 18),
                   ),
                 ),
+                if (kIsWeb)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Chrome may ask for microphone permission. Web recordings are kept as browser blob URLs for this test session.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.yellowAccent),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -563,20 +576,21 @@ class _AudioPageState extends State<AudioPage> {
                             IconButton(
                               icon: const Icon(Icons.analytics, color: Colors.green),
                               onPressed: _isAnalyzing
-                                ? null
-                                : () => _analyzeAudio(audioEntry.filePath, audioEntry.mode),
+                                  ? null
+                                  : () => _analyzeAudio(audioEntry.filePath, audioEntry.mode),
                               tooltip: 'Analyze Mood',
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () async {
-                                // Delete file from storage
-                                final file = File(audioEntry.filePath);
-                                if (await file.exists()) {
-                                  await file.delete();
+                                if (!kIsWeb) {
+                                  final file = getFile(audioEntry.filePath);
+                                  if (await file.exists()) {
+                                    await file.delete();
+                                  }
                                 }
-                                // Delete from Hive
-                                await box.deleteAt(index);
+                                await widget.dataService.deleteAudioEntry(audioEntry);
+                                await box.delete(audioEntry.id);
                                 _showSnackBar('Recording deleted');
                               },
                             ),

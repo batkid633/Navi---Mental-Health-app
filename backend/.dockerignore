@@ -1,0 +1,51 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+README.md
+docs/
+
+# Test files
+test/
+tests/
+*.test.py
+
+# Logs (keep runtime logs, exclude development logs)
+*.log
+
+# Environment files (these will be provided via GCP Secret Manager)
+.env
+.env.local
+.env.*.local

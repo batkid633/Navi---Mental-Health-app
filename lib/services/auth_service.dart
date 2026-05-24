@@ -4,9 +4,6 @@ import 'package:flutter/foundation.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: <String>['email'],
-  );
 
   bool get isSignedIn => _auth.currentUser != null;
 
@@ -24,15 +21,19 @@ class AuthService {
         final provider = GoogleAuthProvider();
         await _auth.signInWithPopup(provider);
       } else {
-        final googleUser = await _googleSignIn.signIn();
+        final googleSignIn = GoogleSignIn();
+        final googleUser = await googleSignIn.signIn();
         if (googleUser == null) {
           return false;
         }
-
         final googleAuth = await googleUser.authentication;
+        final idToken = googleAuth.idToken;
+        if (idToken == null) {
+          return false;
+        }
+
         final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
+          idToken: idToken,
         );
         await _auth.signInWithCredential(credential);
       }
@@ -59,7 +60,7 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
     if (!kIsWeb) {
-      await _googleSignIn.signOut();
+      await GoogleSignIn().signOut();
     }
   }
 }

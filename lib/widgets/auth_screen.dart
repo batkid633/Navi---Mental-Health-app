@@ -3,8 +3,13 @@ import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
   final AuthService authService;
+  final VoidCallback? onContinueInLocalTestMode;
 
-  const AuthScreen({super.key, required this.authService});
+  const AuthScreen({
+    super.key,
+    required this.authService,
+    this.onContinueInLocalTestMode,
+  });
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -137,6 +142,14 @@ class _AuthScreenState extends State<AuthScreen> {
                     'Google sign-in is unavailable on this platform. Use email and password to sign in for verification.',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                     textAlign: TextAlign.center,
+                  ),
+                ],
+                if (widget.onContinueInLocalTestMode != null) ...[
+                  const SizedBox(height: 24),
+                  TextButton.icon(
+                    onPressed: widget.onContinueInLocalTestMode,
+                    icon: const Icon(Icons.science_outlined),
+                    label: const Text('Continue in local test mode'),
                   ),
                 ],
               ],

@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/journal_entry.dart';
+import '../services/data_service.dart';
 
 class JournalDetailPage extends StatefulWidget {
   final String entryId;
+  final Box<JournalEntry> journalBox;
+  final DataService dataService;
 
-  const JournalDetailPage({super.key, required this.entryId});
+  const JournalDetailPage({
+    super.key,
+    required this.entryId,
+    required this.journalBox,
+    required this.dataService,
+  });
 
   @override
   State<JournalDetailPage> createState() => _JournalDetailPageState();
@@ -19,20 +27,22 @@ class _JournalDetailPageState extends State<JournalDetailPage> {
   @override
   void initState() {
     super.initState();
-    journalBox = Hive.box<JournalEntry>('journal');
+    journalBox = widget.journalBox;
     entry = journalBox.get(widget.entryId)!;
     controller = TextEditingController(text: entry.text);
   }
 
-  void _save() {
+  Future<void> _save() async {
     entry.text = controller.text.trim();
     entry.date = DateTime.now(); // update modified date
-    entry.save();
+    await entry.save();
+    await widget.dataService.syncJournalEntryToCloud(entry);
     Navigator.pop(context);
   }
 
-  void _delete() {
-    journalBox.delete(entry.id);
+  Future<void> _delete() async {
+    await widget.dataService.deleteJournalEntry(entry);
+    await journalBox.delete(entry.id);
     Navigator.pop(context);
   }
 

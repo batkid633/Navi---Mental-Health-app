@@ -8,10 +8,11 @@ import 'pages/journal_page.dart';
 import 'pages/today_page.dart';
 import 'pages/audio_page.dart';
 import 'pages/insights_page.dart';
+import 'pages/settings_page.dart';
 import 'services/auth_service.dart';
 import 'services/data_service.dart';
+import 'services/settings_service.dart';
 import 'widgets/auth_gate.dart';
-
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,8 @@ Future<void> main() async {
 
   Hive.registerAdapter(JournalEntryAdapter());
   Hive.registerAdapter(AudioEntryAdapter());
+
+  await SettingsService.init();
 
   runApp(const NaviApp());
 }
@@ -50,8 +53,14 @@ class NaviApp extends StatelessWidget {
 class NaviHome extends StatefulWidget {
   final DataService dataService;
   final AuthService authService;
+  final Future<void> Function()? onSignOut;
 
-  const NaviHome({super.key, required this.dataService, required this.authService});
+  const NaviHome({
+    super.key,
+    required this.dataService,
+    required this.authService,
+    this.onSignOut,
+  });
 
   @override
   State<NaviHome> createState() => _NaviHomeState();
@@ -79,9 +88,23 @@ class _NaviHomeState extends State<NaviHome> {
         title: const Text('Navi'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SettingsPage(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await widget.authService.signOut();
+              if (widget.onSignOut != null) {
+                await widget.onSignOut!();
+              } else {
+                await widget.authService.signOut();
+              }
             },
           ),
         ],

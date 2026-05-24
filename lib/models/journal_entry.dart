@@ -39,12 +39,32 @@ class JournalEntry extends HiveObject {
   }
 
   factory JournalEntry.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString() ??
+        DateTime.now().millisecondsSinceEpoch.toString();
+
+    final dynamic dateValue = json['date'];
+    late final DateTime date;
+    if (dateValue is DateTime) {
+      date = dateValue;
+    } else if (dateValue is int) {
+      date = DateTime.fromMillisecondsSinceEpoch(dateValue);
+    } else if (dateValue is String) {
+      date = DateTime.tryParse(dateValue) ?? DateTime.now();
+    } else {
+      date = DateTime.now();
+    }
+
+    final dynamic sentimentScoreValue = json['sentimentScore'] ?? json['sentiment_score'];
+    final double? sentimentScore = sentimentScoreValue is num
+        ? sentimentScoreValue.toDouble()
+        : double.tryParse(sentimentScoreValue?.toString() ?? '');
+
     return JournalEntry(
-      id: json['id'],
-      date: DateTime.parse(json['date']),
-      text: json['text'],
-      sentimentLabel: json['sentimentLabel'],
-      sentimentScore: json['sentimentScore']?.toDouble(),
+      id: id,
+      date: date,
+      text: json['text']?.toString() ?? '',
+      sentimentLabel: json['sentimentLabel'] ?? json['sentiment_label'],
+      sentimentScore: sentimentScore,
     );
   }
 }

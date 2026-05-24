@@ -6,7 +6,10 @@ import '../config/backend_config.dart';
 class InsightsApi {
   static Future<List<InsightTrend>> fetchTrends(int days) async {
     final uri = Uri.parse('${BackendConfig.baseUrl}/insights/trends?days=$days');
-    final res = await http.get(uri);
+    final res = await http.get(
+      uri,
+      headers: await BackendConfig.getAuthHeaders(),
+    );
 
     if (res.statusCode != 200) {
       throw Exception('Failed to load insight trends: HTTP ${res.statusCode}');

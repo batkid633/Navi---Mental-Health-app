@@ -4,10 +4,11 @@ vaderSentiment
 librosa
 numpy
 scipy
-scikit-learn
+scikit-learn==1.7.2
 pandas
 joblib
 openai
 python-dotenv
 nltk
 firebase-admin
+python-multipart

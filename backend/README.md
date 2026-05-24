@@ -21,14 +21,52 @@ cp .env.example .env
 # Edit .env with your credentials:
 # - OPENAI_API_KEY: Get from https://platform.openai.com/api-keys
 # - WHOOP_CLIENT_ID/SECRET: Register at https://developer.whoop.com/
+# Make sure values are not wrapped in extra quotes in .env.
 ```
 
-3. Start the server:
-```bash
+3. Start the backend server locally.
+
+From the project root, use the project virtual environment:
+```powershell
+.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Or from the `backend` folder:
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+```
+
+If you prefer to run directly from the backend package, you can also use:
+```powershell
+cd backend
 python app.py
 ```
 
-The backend will start on `http://localhost:8000`
+The backend will start on `http://127.0.0.1:8000`
+
+### Authentication behavior
+
+Production should run with:
+
+```bash
+ENVIRONMENT=production
+AUTH_REQUIRED=true
+ALLOW_CORS_FROM=https://app.yourdomain.com,https://www.yourdomain.com
+```
+
+When `AUTH_REQUIRED=true`, sensitive endpoints require a Firebase ID token in the `Authorization: Bearer <token>` header. The Flutter app now adds that token automatically for signed-in users. Local development can keep `AUTH_REQUIRED=false` so you can test backend behavior before wiring Firebase credentials into your shell.
+
+For local runs, edit `.env` or set shell environment variables before starting Uvicorn. `.env.production` is a deployment template and is not automatically used by `flutter run` or the local backend.
+
+> Important: Make sure `WHOOP_REDIRECT_URI` is set to the backend callback URL and matches the redirect configured in your Whoop developer app.
+> If you run the backend from a different machine or your phone is on another device, use your computer’s LAN IP instead of `127.0.0.1`.
+> Example: `http://192.168.1.100:8000/whoop/callback`
+>
+> For Android emulators, use `http://10.0.2.2:8000/whoop/callback` when running the backend on your host machine.
+> For iOS simulators, `http://127.0.0.1:8000/whoop/callback` should work when the backend runs on the same computer.
+>
+> When running `flutter run -d chrome`, the backend must also allow cross-origin requests from the browser. The backend now includes CORS support for local development.
 
 ---
 

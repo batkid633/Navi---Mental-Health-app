@@ -1,0 +1,11 @@
+{
+  "name": "backend_5xx_completions",
+  "description": "Counts Navi backend request_complete logs with 5xx status codes.",
+  "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=\"request_complete\" AND jsonPayload.status_code>=500",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "displayName": "Navi backend 5xx completions"
+  }
+}

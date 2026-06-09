@@ -22,13 +22,20 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       text: fields[2] as String,
       sentimentLabel: fields[3] as String?,
       sentimentScore: fields[4] as double?,
+      syncStatus: fields[5] as String? ?? SyncStatus.pending,
+      syncAttempts: fields[6] as int? ?? 0,
+      lastSyncError: fields[7] as String?,
+      lastSyncedAt: fields[8] as DateTime?,
+      nextRetryAt: fields[9] as DateTime?,
+      sentimentSource: fields[10] as String?,
+      sentimentFallbackReason: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, JournalEntry obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +45,21 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       ..writeByte(3)
       ..write(obj.sentimentLabel)
       ..writeByte(4)
-      ..write(obj.sentimentScore);
+      ..write(obj.sentimentScore)
+      ..writeByte(5)
+      ..write(obj.syncStatus)
+      ..writeByte(6)
+      ..write(obj.syncAttempts)
+      ..writeByte(7)
+      ..write(obj.lastSyncError)
+      ..writeByte(8)
+      ..write(obj.lastSyncedAt)
+      ..writeByte(9)
+      ..write(obj.nextRetryAt)
+      ..writeByte(10)
+      ..write(obj.sentimentSource)
+      ..writeByte(11)
+      ..write(obj.sentimentFallbackReason);
   }
 
   @override

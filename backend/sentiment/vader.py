@@ -18,4 +18,6 @@ def analyze_sentiment(text: str) -> dict:
         "pos": scores["pos"],
         "neg": scores["neg"],
         "neu": scores["neu"],
+        "source": "backend",
+        "model": "nltk_vader",
     }

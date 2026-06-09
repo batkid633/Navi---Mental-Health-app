@@ -1,0 +1,22 @@
+{
+  "displayName": "Navi backend health uptime",
+  "monitoredResource": {
+    "type": "uptime_url",
+    "labels": {
+      "host": "BACKEND_HOST",
+      "project_id": "PROJECT_ID"
+    }
+  },
+  "httpCheck": {
+    "path": "/health",
+    "port": 443,
+    "useSsl": true,
+    "validateSsl": true,
+    "requestMethod": "GET"
+  },
+  "period": "60s",
+  "timeout": "10s",
+  "selectedRegions": [
+    "USA"
+  ]
+}

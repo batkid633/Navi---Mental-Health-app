@@ -1,9 +1,13 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+
 import 'dart:html' as html;
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-Future<http.MultipartFile> platformAudioMultipartFileFromPath(String path) async {
+Future<http.MultipartFile> platformAudioMultipartFileFromPath(
+  String path,
+) async {
   final response = await html.HttpRequest.request(
     path,
     responseType: 'arraybuffer',

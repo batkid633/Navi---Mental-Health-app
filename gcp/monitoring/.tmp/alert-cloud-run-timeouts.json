@@ -1,0 +1,31 @@
+﻿{
+  "displayName": "Navi backend timeout responses",
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "Cloud Run 504 response count",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"navi-backend\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code=\"504\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "300s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "documentation": {
+    "content": "Navi backend returned timeout responses. Check request_timeout_seconds, audio processing, and outbound API latency.",
+    "mimeType": "text/markdown"
+  }
+}
+

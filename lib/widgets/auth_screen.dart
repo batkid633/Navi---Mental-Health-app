@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -23,15 +26,39 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
+    unawaited(
+      AnalyticsService.track(
+        'sign_in_attempted',
+        properties: {'method': 'google'},
+      ),
+    );
     final success = await widget.authService.signInWithGoogle();
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (!success) {
+      unawaited(
+        AnalyticsService.track(
+          'sign_in_failed',
+          properties: {'method': 'google'},
+        ),
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google sign in failed.')),
+          SnackBar(
+            content: Text(
+              widget.authService.lastError ?? 'Google sign in failed.',
+            ),
+          ),
         );
       }
+    } else {
+      unawaited(
+        AnalyticsService.track(
+          'sign_in_succeeded',
+          properties: {'method': 'google'},
+        ),
+      );
     }
   }
 
@@ -39,12 +66,36 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
     final email = _emailController.text;
     final password = _passwordController.text;
+    unawaited(
+      AnalyticsService.track(
+        'sign_in_attempted',
+        properties: {'method': 'email'},
+      ),
+    );
     final success = await widget.authService.signInWithEmail(email, password);
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (!success && mounted) {
+      unawaited(
+        AnalyticsService.track(
+          'sign_in_failed',
+          properties: {'method': 'email'},
+        ),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email sign in failed.')),
+        SnackBar(
+          content: Text(
+            widget.authService.lastError ?? 'Email sign in failed.',
+          ),
+        ),
+      );
+    } else if (success) {
+      unawaited(
+        AnalyticsService.track(
+          'sign_in_succeeded',
+          properties: {'method': 'email'},
+        ),
       );
     }
   }
@@ -67,18 +118,12 @@ class _AuthScreenState extends State<AuthScreen> {
             children: [
               const Text(
                 'Welcome to Navi',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Your personal mood and insight companion',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -104,25 +149,31 @@ class _AuthScreenState extends State<AuthScreen> {
                     setState(() {
                       _showEmailForm = !_showEmailForm;
                     });
+                    unawaited(
+                      AnalyticsService.track(
+                        'email_sign_in_form_toggled',
+                        properties: {'shown': _showEmailForm},
+                      ),
+                    );
                   },
-                  child: Text(_showEmailForm ? 'Hide email sign in' : 'Sign in with email'),
+                  child: Text(
+                    _showEmailForm
+                        ? 'Hide email sign in'
+                        : 'Sign in with email',
+                  ),
                 ),
                 if (_showEmailForm) ...[
                   const SizedBox(height: 16),
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Email'),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Password'),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(

@@ -1,0 +1,667 @@
+{
+  "version": "trajectory_v2_001",
+  "trained_at": "2026-06-05",
+  "user_id": "local-dev",
+  "row_count": 32,
+  "horizons": {
+    "1": [
+      {
+        "ablation": "journal",
+        "horizon_days": 1,
+        "train_n": 18,
+        "test_n": 6,
+        "metrics": {
+          "mae": 0.41984802680554295,
+          "rmse": 0.49061821904470665,
+          "baseline_mae": 0.6234000000000001,
+          "baseline_rmse": 0.7045727641627939,
+          "mae_improvement": 0.20355197319445711,
+          "relative_mae_improvement": 0.32651904586855485,
+          "n": 6
+        },
+        "feature_count": 13
+      },
+      {
+        "ablation": "journal_biometric",
+        "horizon_days": 1,
+        "train_n": 18,
+        "test_n": 6,
+        "metrics": {
+          "mae": 0.5125881983831059,
+          "rmse": 0.595176581876808,
+          "baseline_mae": 0.6234000000000001,
+          "baseline_rmse": 0.7045727641627939,
+          "mae_improvement": 0.11081180161689419,
+          "relative_mae_improvement": 0.17775393265462652,
+          "n": 6
+        },
+        "feature_count": 19
+      },
+      {
+        "ablation": "journal_audio",
+        "horizon_days": 1,
+        "train_n": 18,
+        "test_n": 6,
+        "metrics": {
+          "mae": 0.41984802680554356,
+          "rmse": 0.4906182190447053,
+          "baseline_mae": 0.6234000000000001,
+          "baseline_rmse": 0.7045727641627939,
+          "mae_improvement": 0.2035519731944565,
+          "relative_mae_improvement": 0.32651904586855385,
+          "n": 6
+        },
+        "feature_count": 20
+      },
+      {
+        "ablation": "all_modalities",
+        "horizon_days": 1,
+        "train_n": 18,
+        "test_n": 6,
+        "metrics": {
+          "mae": 0.5125881983831063,
+          "rmse": 0.5951765818768089,
+          "baseline_mae": 0.6234000000000001,
+          "baseline_rmse": 0.7045727641627939,
+          "mae_improvement": 0.11081180161689375,
+          "relative_mae_improvement": 0.17775393265462583,
+          "n": 6
+        },
+        "feature_count": 26
+      }
+    ],
+    "3": [
+      {
+        "ablation": "journal",
+        "horizon_days": 3,
+        "train_n": 16,
+        "test_n": 6,
+        "metrics": {
+          "mae": 0.5082043292237631,
+          "rmse": 0.5535834599271963,
+          "baseline_mae": 0.47029999999999994,
+          "baseline_rmse": 0.5777217467489576,
+          "mae_improvement": -0.03790432922376319,
+          "relative_mae_improvement": -0.08059606469011948,
+          "n": 6
+        },
+        "feature_count": 13
+      },
+      {
+        "ablation": "journal_biometric",
+        "horizon_days": 3,
+        "train_n": 16,
+        "test_n": 6,
+        "metrics": {
+          "mae": 1.8429137243973825,
+          "rmse": 2.0143279922609825,
+          "baseline_mae": 0.47029999999999994,
+          "baseline_rmse": 0.5777217467489576,
+          "mae_improvement": -1.3726137243973826,
+          "relative_mae_improvement": -2.918591801823055,
+          "n": 6
+        },
+        "feature_count": 19
+      },
+      {
+        "ablation": "journal_audio",
+        "horizon_days": 3,
+        "train_n": 16,
+        "test_n": 6,
+        "metrics": {
+          "mae": 0.5082043292237319,
+          "rmse": 0.5535834599271647,
+          "baseline_mae": 0.47029999999999994,
+          "baseline_rmse": 0.5777217467489576,
+          "mae_improvement": -0.03790432922373199,
+          "relative_mae_improvement": -0.08059606469005315,
+          "n": 6
+        },
+        "feature_count": 20
+      },
+      {
+        "ablation": "all_modalities",
+        "horizon_days": 3,
+        "train_n": 16,
+        "test_n": 6,
+        "metrics": {
+          "mae": 1.8429137243973825,
+          "rmse": 2.0143279922609825,
+          "baseline_mae": 0.47029999999999994,
+          "baseline_rmse": 0.5777217467489576,
+          "mae_improvement": -1.3726137243973826,
+          "relative_mae_improvement": -2.918591801823055,
+          "n": 6
+        },
+        "feature_count": 26
+      }
+    ],
+    "7": [
+      {
+        "ablation": "journal",
+        "horizon_days": 7,
+        "train_n": 13,
+        "test_n": 5,
+        "metrics": {
+          "mae": 0.5300788905513338,
+          "rmse": 0.7039683619472261,
+          "baseline_mae": 0.57644,
+          "baseline_rmse": 0.7414904153122952,
+          "mae_improvement": 0.046361109448666116,
+          "relative_mae_improvement": 0.08042660025096475,
+          "n": 5
+        },
+        "feature_count": 13
+      },
+      {
+        "ablation": "journal_biometric",
+        "horizon_days": 7,
+        "train_n": 13,
+        "test_n": 5,
+        "metrics": {
+          "mae": 0.6024740676932263,
+          "rmse": 0.7847745598114507,
+          "baseline_mae": 0.57644,
+          "baseline_rmse": 0.7414904153122952,
+          "mae_improvement": -0.02603406769322636,
+          "relative_mae_improvement": -0.04516353426761911,
+          "n": 5
+        },
+        "feature_count": 19
+      },
+      {
+        "ablation": "journal_audio",
+        "horizon_days": 7,
+        "train_n": 13,
+        "test_n": 5,
+        "metrics": {
+          "mae": 0.5300788905513334,
+          "rmse": 0.703968361947226,
+          "baseline_mae": 0.57644,
+          "baseline_rmse": 0.7414904153122952,
+          "mae_improvement": 0.04636110944866656,
+          "relative_mae_improvement": 0.08042660025096551,
+          "n": 5
+        },
+        "feature_count": 20
+      },
+      {
+        "ablation": "all_modalities",
+        "horizon_days": 7,
+        "train_n": 13,
+        "test_n": 5,
+        "metrics": {
+          "mae": 0.6024740676932263,
+          "rmse": 0.7847745598114507,
+          "baseline_mae": 0.57644,
+          "baseline_rmse": 0.7414904153122952,
+          "mae_improvement": -0.02603406769322636,
+          "relative_mae_improvement": -0.04516353426761911,
+          "n": 5
+        },
+        "feature_count": 26
+      }
+    ],
+    "14": [
+      {
+        "ablation": "journal",
+        "horizon_days": 14,
+        "train_n": 8,
+        "test_n": 3,
+        "metrics": {
+          "mae": 0.29702752280546957,
+          "rmse": 0.3748668925029321,
+          "baseline_mae": 1.0253999999999999,
+          "baseline_rmse": 1.190372751144223,
+          "mae_improvement": 0.7283724771945304,
+          "relative_mae_improvement": 0.7103300928364837,
+          "n": 3
+        },
+        "feature_count": 13
+      },
+      {
+        "ablation": "journal_biometric",
+        "horizon_days": 14,
+        "train_n": 8,
+        "test_n": 3,
+        "metrics": {
+          "mae": 0.5843820541059835,
+          "rmse": 0.6635919287696724,
+          "baseline_mae": 1.0253999999999999,
+          "baseline_rmse": 1.190372751144223,
+          "mae_improvement": 0.4410179458940163,
+          "relative_mae_improvement": 0.4300935692354363,
+          "n": 3
+        },
+        "feature_count": 19
+      },
+      {
+        "ablation": "journal_audio",
+        "horizon_days": 14,
+        "train_n": 8,
+        "test_n": 3,
+        "metrics": {
+          "mae": 0.2970275228054695,
+          "rmse": 0.3748668925029321,
+          "baseline_mae": 1.0253999999999999,
+          "baseline_rmse": 1.190372751144223,
+          "mae_improvement": 0.7283724771945304,
+          "relative_mae_improvement": 0.7103300928364837,
+          "n": 3
+        },
+        "feature_count": 20
+      },
+      {
+        "ablation": "all_modalities",
+        "horizon_days": 14,
+        "train_n": 8,
+        "test_n": 3,
+        "metrics": {
+          "mae": 0.5843820541059835,
+          "rmse": 0.6635919287696724,
+          "baseline_mae": 1.0253999999999999,
+          "baseline_rmse": 1.190372751144223,
+          "mae_improvement": 0.4410179458940163,
+          "relative_mae_improvement": 0.4300935692354363,
+          "n": 3
+        },
+        "feature_count": 26
+      }
+    ]
+  },
+  "active_ablation": "all_modalities",
+  "artifacts": {
+    "journal_1d": {
+      "path": "trajectory_v2_001\\journal_1d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_biometric_1d": {
+      "path": "trajectory_v2_001\\journal_biometric_1d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_audio_1d": {
+      "path": "trajectory_v2_001\\journal_audio_1d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "all_modalities_1d": {
+      "path": "trajectory_v2_001\\all_modalities_1d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_3d": {
+      "path": "trajectory_v2_001\\journal_3d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_biometric_3d": {
+      "path": "trajectory_v2_001\\journal_biometric_3d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_audio_3d": {
+      "path": "trajectory_v2_001\\journal_audio_3d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "all_modalities_3d": {
+      "path": "trajectory_v2_001\\all_modalities_3d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_7d": {
+      "path": "trajectory_v2_001\\journal_7d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_biometric_7d": {
+      "path": "trajectory_v2_001\\journal_biometric_7d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_audio_7d": {
+      "path": "trajectory_v2_001\\journal_audio_7d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "all_modalities_7d": {
+      "path": "trajectory_v2_001\\all_modalities_7d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_14d": {
+      "path": "trajectory_v2_001\\journal_14d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_biometric_14d": {
+      "path": "trajectory_v2_001\\journal_biometric_14d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "journal_audio_14d": {
+      "path": "trajectory_v2_001\\journal_audio_14d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    },
+    "all_modalities_14d": {
+      "path": "trajectory_v2_001\\all_modalities_14d.pkl",
+      "features": [
+        "sentiment_today",
+        "rolling_mean_7",
+        "volatility_7",
+        "momentum_7",
+        "z_score",
+        "is_anomalous",
+        "day_of_week",
+        "sleep_hours",
+        "sleep_efficiency",
+        "resting_hr",
+        "hrv_rmssd",
+        "recovery_score",
+        "strain",
+        "audio_session_count",
+        "audio_total_seconds",
+        "audio_negative_ratio",
+        "audio_positive_ratio",
+        "audio_anxious_ratio",
+        "audio_calm_ratio",
+        "audio_training_count",
+        "missing_journal",
+        "missing_biometrics",
+        "missing_audio",
+        "missing_sleep",
+        "missing_hrv",
+        "missing_recovery"
+      ]
+    }
+  }
+}

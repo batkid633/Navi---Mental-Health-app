@@ -16,13 +16,13 @@ spec:
   template:
     metadata:
       annotations:
-        run.googleapis.com/cloudsql-instances: "navi-personal-gcp:us-central1:navi-postgresql"
+        run.googleapis.com/cloudsql-instances: "project-bc878e6c-6f53-4f24-88a:us-central1:navi-postgresql"
         run.googleapis.com/memory: "1Gi"
         run.googleapis.com/cpu: "1"
     spec:
       serviceAccountName: navi-cloud-run
       containers:
-      - image: us-central1-docker.pkg.dev/navi-personal-gcp/navi-backend/navi-backend:latest
+      - image: us-central1-docker.pkg.dev/project-bc878e6c-6f53-4f24-88a/navi-backend/navi-backend:latest
         ports:
         - containerPort: 8080
         env:
@@ -34,8 +34,34 @@ spec:
           value: "production"
         - name: AUTH_REQUIRED
           value: "true"
+        - name: SECRET_MANAGER_PROJECT_ID
+          value: "project-bc878e6c-6f53-4f24-88a"
+        - name: OPENAI_API_KEY_SECRET
+          value: "openai-api-key"
+        - name: WHOOP_CLIENT_ID_SECRET
+          value: "whoop-client-id"
+        - name: WHOOP_CLIENT_SECRET_SECRET
+          value: "whoop-client-secret"
+        - name: WHOOP_TOKENS_SECRET
+          value: "whoop-tokens"
+        - name: WHOOP_REDIRECT_URI
+          value: "https://navi-backend-zcp5ib6peq-uc.a.run.app/whoop/callback"
+        - name: FITBIT_REDIRECT_URI
+          value: "https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback"
+        - name: GOOGLE_HEALTH_REDIRECT_URI
+          value: "https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback"
+        - name: REQUEST_TIMEOUT_SECONDS
+          value: "60"
+        - name: OUTBOUND_TIMEOUT_SECONDS
+          value: "15"
+        - name: RATE_LIMIT_PER_MINUTE
+          value: "120"
+        - name: MAX_AUDIO_UPLOAD_BYTES
+          value: "26214400"
+        - name: ADMIN_ACCESS_UIDS
+          value: ""
         - name: ALLOW_CORS_FROM
-          value: "https://app.yourdomain.com,https://www.yourdomain.com"
+          value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com"
         - name: CLOUDSQL_CONNECTION_NAME
           valueFrom:
             secretKeyRef:
@@ -54,16 +80,6 @@ spec:
           valueFrom:
             secretKeyRef:
               name: database-url
-              key: latest
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: openai-api-key
-              key: latest
-        - name: WHOOP_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: whoop-api-key
               key: latest
         - name: FIREBASE_ADMIN_SDK_KEY
           valueFrom:
@@ -118,7 +134,7 @@ spec:
   bindings:
   - role: roles/cloudsql.client
     members:
-    - serviceAccount:navi-cloud-run@navi-personal-gcp.iam.gserviceaccount.com
+    - serviceAccount:navi-cloud-run@project-bc878e6c-6f53-4f24-88a.iam.gserviceaccount.com
 
 ---
 # IAM Binding for Secret Manager Access
@@ -134,7 +150,7 @@ spec:
   bindings:
   - role: roles/secretmanager.secretAccessor
     members:
-    - serviceAccount:navi-cloud-run@navi-personal-gcp.iam.gserviceaccount.com
+    - serviceAccount:navi-cloud-run@project-bc878e6c-6f53-4f24-88a.iam.gserviceaccount.com
 
 ---
 # Cloud Run Service Configuration
@@ -157,7 +173,7 @@ spec:
       minInstances: 1
 
       containers:
-      - image: us-central1-docker.pkg.dev/navi-personal-gcp/navi-backend/navi-backend:latest
+      - image: us-central1-docker.pkg.dev/project-bc878e6c-6f53-4f24-88a/navi-backend/navi-backend:latest
         ports:
         - containerPort: 8080
         
@@ -168,8 +184,34 @@ spec:
           value: production
         - name: AUTH_REQUIRED
           value: "true"
+        - name: SECRET_MANAGER_PROJECT_ID
+          value: "project-bc878e6c-6f53-4f24-88a"
+        - name: OPENAI_API_KEY_SECRET
+          value: "openai-api-key"
+        - name: WHOOP_CLIENT_ID_SECRET
+          value: "whoop-client-id"
+        - name: WHOOP_CLIENT_SECRET_SECRET
+          value: "whoop-client-secret"
+        - name: WHOOP_TOKENS_SECRET
+          value: "whoop-tokens"
+        - name: WHOOP_REDIRECT_URI
+          value: "https://navi-backend-zcp5ib6peq-uc.a.run.app/whoop/callback"
+        - name: FITBIT_REDIRECT_URI
+          value: "https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback"
+        - name: GOOGLE_HEALTH_REDIRECT_URI
+          value: "https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback"
+        - name: REQUEST_TIMEOUT_SECONDS
+          value: "60"
+        - name: OUTBOUND_TIMEOUT_SECONDS
+          value: "15"
+        - name: RATE_LIMIT_PER_MINUTE
+          value: "120"
+        - name: MAX_AUDIO_UPLOAD_BYTES
+          value: "26214400"
+        - name: ADMIN_ACCESS_UIDS
+          value: ""
         - name: ALLOW_CORS_FROM
-          value: "https://app.yourdomain.com,https://www.yourdomain.com"
+          value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com"
         
         resources:
           limits:
@@ -304,7 +346,7 @@ spec:
       duration: 300s
 
   notificationChannels:
-  - projects/navi-personal-gcp/notificationChannels/12345678  # Update with actual channel
+  - projects/project-bc878e6c-6f53-4f24-88a/notificationChannels/REPLACE_WITH_CHANNEL_ID
 
   alertStrategy:
     autoClose: 1800s
@@ -336,7 +378,7 @@ spec:
     ipConfiguration:
       requireSsl: true
       ipv4Enabled: false
-      privateNetwork: projects/navi-personal-gcp/global/networks/navi-vpc
+      privateNetwork: projects/project-bc878e6c-6f53-4f24-88a/global/networks/navi-vpc
     insightsConfig:
       queryInsightsEnabled: true
       queryPlansPerMinute: 5

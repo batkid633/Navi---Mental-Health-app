@@ -4,36 +4,44 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'firebase_options.dart';
 import 'models/journal_entry.dart';
 import 'models/audio_entry.dart';
+import 'models/evaluation_feedback.dart';
+import 'models/keyboard_session_entry.dart';
 import 'pages/journal_page.dart';
 import 'pages/today_page.dart';
 import 'pages/audio_page.dart';
 import 'pages/insights_page.dart';
 import 'pages/settings_page.dart';
 import 'services/auth_service.dart';
+import 'services/analytics_service.dart';
 import 'services/data_service.dart';
+import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'widgets/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Initialize Hive with the default directory (Documents) to preserve existing data
   await Hive.initFlutter();
 
   Hive.registerAdapter(JournalEntryAdapter());
   Hive.registerAdapter(AudioEntryAdapter());
+  Hive.registerAdapter(EvaluationFeedbackAdapter());
+  Hive.registerAdapter(KeyboardSessionEntryAdapter());
 
   await SettingsService.init();
+  await NotificationService.instance.init();
+  await AnalyticsService.track('app_started');
 
   runApp(const NaviApp());
 }
 
 class NaviApp extends StatelessWidget {
-  const NaviApp({super.key});
+  final Widget? home;
+
+  const NaviApp({super.key, this.home});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +53,7 @@ class NaviApp extends StatelessWidget {
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
+      home: home ?? const AuthGate(),
     );
   }
 }
@@ -92,7 +100,11 @@ class _NaviHomeState extends State<NaviHome> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const SettingsPage(),
+                  builder: (_) => SettingsPage(
+                    dataService: widget.dataService,
+                    authService: widget.authService,
+                    onSignOut: widget.onSignOut,
+                  ),
                 ),
               );
             },
@@ -114,6 +126,7 @@ class _NaviHomeState extends State<NaviHome> {
         selectedIndex: _tabIndex,
         onDestinationSelected: (index) {
           setState(() => _tabIndex = index);
+          AnalyticsService.track('tab_viewed', properties: {'index': index});
         },
         destinations: const [
           NavigationDestination(
@@ -141,4 +154,3 @@ class _NaviHomeState extends State<NaviHome> {
     );
   }
 }
-

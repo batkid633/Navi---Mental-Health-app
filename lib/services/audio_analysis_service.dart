@@ -1,49 +1,32 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/backend_config.dart';
-import '../utils/audio_multipart.dart';
 
 class AudioAnalysisService {
-  static Future<Map<String, dynamic>> analyzeAudio(dynamic audioFile, {String mode = 'emotional_venting'}) async {
-    try {
-      // Create multipart request
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${BackendConfig.baseUrl}/audio/analyze'),
-      );
-      request.headers.addAll(await BackendConfig.getAuthHeaders());
-
-      // Add audio file
-      final audioPath = audioFile is String ? audioFile : audioFile.path as String;
-      request.files.add(await audioMultipartFileFromPath(audioPath));
-
-      // Add mode parameter
-      request.fields['mode'] = mode;
-
-      // Send request
-      var response = await request.send();
-      var responseData = await response.stream.bytesToString();
-      var jsonResponse = json.decode(responseData);
-
-      if (response.statusCode == 200) {
-        return jsonResponse;
-      } else {
-        throw Exception('Analysis failed: ${jsonResponse['detail'] ?? responseData}');
-      }
-    } catch (e) {
-      return {
-        'error': 'Failed to analyze audio: $e',
-        'mood_analysis': null,
-        'audio_features': null
-      };
-    }
+  static Future<Map<String, dynamic>> analyzeAudio(
+    dynamic audioFile, {
+    String mode = 'emotional_venting',
+  }) async {
+    return {
+      'error':
+          'Audio analysis requires an on-device model while end-to-end encryption is enabled.',
+      'mode': mode,
+      'mood_analysis': null,
+      'audio_features': null,
+      'e2eeLocalOnly': true,
+    };
   }
 
-  static Future<Map<String, dynamic>> trainAudioModel(String trainingCsvPath) async {
+  static Future<Map<String, dynamic>> trainAudioModel(
+    String trainingCsvPath,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('${BackendConfig.baseUrl}/audio/train'),
-        headers: await BackendConfig.getAuthHeaders(),
+        headers: {
+          ...await BackendConfig.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
         body: json.encode({'training_csv_path': trainingCsvPath}),
       );
 

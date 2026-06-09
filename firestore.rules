@@ -21,8 +21,43 @@ service cloud.firestore {
         allow read, create, update, delete: if ownsUserDocument(userId);
       }
 
+      match /keyboard_sessions/{entryId} {
+        allow read, create, update, delete: if ownsUserDocument(userId);
+      }
+
       match /mood_predictions/{predictionId} {
         allow read, create, update, delete: if ownsUserDocument(userId);
+      }
+
+      match /evaluation_feedback/{feedbackId} {
+        allow read, create, update, delete: if ownsUserDocument(userId);
+      }
+
+      match /profile/{docId} {
+        allow read, create, update, delete: if ownsUserDocument(userId);
+      }
+
+      match /notification_devices/{deviceId} {
+        allow read, create, update, delete: if ownsUserDocument(userId);
+      }
+
+      match /consent_records/{recordId} {
+        allow read, create, delete: if ownsUserDocument(userId);
+        allow update: if false;
+      }
+
+      match /analytics_events/{eventId} {
+        allow read, create, delete: if ownsUserDocument(userId);
+        allow update: if false;
+      }
+
+      match /daily_analytics/{dayId} {
+        allow read, create, update, delete: if ownsUserDocument(userId);
+      }
+
+      match /backend_ml_features/{recordId} {
+        allow read, delete: if ownsUserDocument(userId);
+        allow create, update: if false;
       }
     }
   }

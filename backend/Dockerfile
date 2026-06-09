@@ -23,7 +23,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY app.py .
 COPY auth.py .
+COPY config.py .
 COPY user_data.py .
+COPY fitbit_api.py .
 COPY whoop_api.py .
 COPY sentiment/ ./sentiment/
 COPY ml/ ./ml/

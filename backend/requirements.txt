@@ -12,3 +12,4 @@ python-dotenv
 nltk
 firebase-admin
 python-multipart
+google-cloud-secret-manager

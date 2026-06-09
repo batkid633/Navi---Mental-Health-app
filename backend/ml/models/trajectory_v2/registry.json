@@ -1,0 +1,20 @@
+{
+  "active_version": "trajectory_v2_002",
+  "latest_version": 2,
+  "models": [
+    {
+      "version": "trajectory_v2_001",
+      "trained_at": "2026-06-05",
+      "row_count": 32,
+      "active": true,
+      "report_path": "trajectory_v2_001\\report.json"
+    },
+    {
+      "version": "trajectory_v2_002",
+      "trained_at": "2026-06-05",
+      "row_count": 32,
+      "active": true,
+      "report_path": "trajectory_v2_002\\report.json"
+    }
+  ]
+}

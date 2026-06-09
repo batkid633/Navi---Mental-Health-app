@@ -1,0 +1,17 @@
+ENVIRONMENT: production
+AUTH_REQUIRED: "true"
+ALLOW_CORS_FROM: "http://localhost:5000,http://127.0.0.1:5000,https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com"
+SECRET_MANAGER_PROJECT_ID: project-bc878e6c-6f53-4f24-88a
+OPENAI_API_KEY_SECRET: openai-api-key
+WHOOP_CLIENT_ID_SECRET: whoop-client-id
+WHOOP_CLIENT_SECRET_SECRET: whoop-client-secret
+WHOOP_TOKENS_SECRET: whoop-tokens
+WHOOP_REDIRECT_URI: "https://navi-backend-zcp5ib6peq-uc.a.run.app/whoop/callback"
+GOOGLE_HEALTH_REDIRECT_URI: "https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback"
+FITBIT_REDIRECT_URI: "https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback"
+REQUEST_TIMEOUT_SECONDS: "60"
+OUTBOUND_TIMEOUT_SECONDS: "15"
+RATE_LIMIT_PER_MINUTE: "120"
+MAX_AUDIO_UPLOAD_BYTES: "26214400"
+ADMIN_ACCESS_UIDS: ""
+MONITORING_ACCESS_UIDS: ""

@@ -1,29 +1,13 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/backend_config.dart';
-
 class SentimentService {
-
   static Future<Map<String, dynamic>> analyze(String text) async {
-    try {
-      final response = await http.post(
-        Uri.parse("${BackendConfig.baseUrl}/sentiment"),
-        headers: await BackendConfig.getAuthHeaders(),
-        body: jsonEncode({"text": text}),
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (_) {
-      // Fall through to lightweight local scoring so offline/local testing
-      // still produces usable journal data.
-    }
-
-    return _localFallback(text);
+    return _localFallback(text, fallbackReason: 'e2ee_local_default');
   }
 
-  static Map<String, dynamic> _localFallback(String text) {
+  static Map<String, dynamic> _localFallback(
+    String text, {
+    required String fallbackReason,
+    int? backendStatusCode,
+  }) {
     const positiveWords = {
       'good',
       'great',
@@ -62,7 +46,16 @@ class SentimentService {
         .toList();
 
     if (words.isEmpty) {
-      return {'compound': 0.0, 'label': 'neutral', 'source': 'local'};
+      final result = {
+        'compound': 0.0,
+        'label': 'neutral',
+        'source': 'local_fallback',
+        'fallbackReason': fallbackReason,
+      };
+      if (backendStatusCode != null) {
+        result['backendStatusCode'] = backendStatusCode;
+      }
+      return result;
     }
 
     var score = 0;
@@ -75,9 +68,18 @@ class SentimentService {
     final label = compound > 0.05
         ? 'positive'
         : compound < -0.05
-            ? 'negative'
-            : 'neutral';
+        ? 'negative'
+        : 'neutral';
 
-    return {'compound': compound, 'label': label, 'source': 'local'};
+    final result = {
+      'compound': compound,
+      'label': label,
+      'source': 'local_fallback',
+      'fallbackReason': fallbackReason,
+    };
+    if (backendStatusCode != null) {
+      result['backendStatusCode'] = backendStatusCode;
+    }
+    return result;
   }
 }

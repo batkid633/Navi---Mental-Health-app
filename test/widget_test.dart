@@ -7,20 +7,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:navi_personal/main.dart';
-import 'package:navi_personal/firebase_options.dart';
 
 void main() {
-  setUpAll(() async {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  });
-
   testWidgets('App smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const NaviApp());
+    await tester.pumpWidget(const NaviApp(home: Scaffold(body: Text('Test'))));
 
     // Verify that the app builds without crashing.
     expect(find.byType(MaterialApp), findsOneWidget);

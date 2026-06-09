@@ -1,0 +1,11 @@
+{
+  "name": "product_events",
+  "description": "Counts privacy-safe Navi backend product_event logs.",
+  "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=\"product_event\"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "displayName": "Navi product events"
+  }
+}

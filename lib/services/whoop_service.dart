@@ -29,6 +29,38 @@ class WhoopStatus {
   }
 }
 
+class WhoopSyncResult {
+  final int requestedDays;
+  final int fetched;
+  final int saved;
+  final int durableSaved;
+  final String? dateStart;
+  final String? dateEnd;
+  final String? detail;
+
+  WhoopSyncResult({
+    required this.requestedDays,
+    required this.fetched,
+    required this.saved,
+    required this.durableSaved,
+    this.dateStart,
+    this.dateEnd,
+    this.detail,
+  });
+
+  factory WhoopSyncResult.fromJson(Map<String, dynamic> json) {
+    return WhoopSyncResult(
+      requestedDays: (json['requested_days'] as num?)?.toInt() ?? 0,
+      fetched: (json['fetched'] as num?)?.toInt() ?? 0,
+      saved: (json['saved'] as num?)?.toInt() ?? 0,
+      durableSaved: (json['durable_saved'] as num?)?.toInt() ?? 0,
+      dateStart: json['date_start']?.toString(),
+      dateEnd: json['date_end']?.toString(),
+      detail: json['detail']?.toString(),
+    );
+  }
+}
+
 class WhoopService {
   static Future<WhoopStatus> getStatus() async {
     final uri = Uri.parse('${BackendConfig.baseUrl}/whoop/status');
@@ -63,10 +95,7 @@ class WhoopService {
       throw Exception('Invalid connect URL returned from backend.');
     }
 
-    return WhoopConnectInfo(
-      authUrl: authUrl,
-      redirectUri: redirectUri ?? '',
-    );
+    return WhoopConnectInfo(authUrl: authUrl, redirectUri: redirectUri ?? '');
   }
 
   static Future<WhoopConnectInfo> launchConnectUrl() async {
@@ -75,7 +104,9 @@ class WhoopService {
 
     final launched = await launchUrl(
       uri,
-      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      mode: kIsWeb
+          ? LaunchMode.platformDefault
+          : LaunchMode.externalApplication,
       webOnlyWindowName: '_blank',
     );
 
@@ -96,6 +127,22 @@ class WhoopService {
     if (response.statusCode != 200) {
       throw Exception('Retrain request failed: ${response.statusCode}');
     }
+  }
+
+  static Future<WhoopSyncResult> syncDailyMetrics({int days = 30}) async {
+    final uri = Uri.parse('${BackendConfig.baseUrl}/whoop/sync?days=$days');
+    final response = await http.post(
+      uri,
+      headers: await BackendConfig.getAuthHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('WHOOP sync request failed: ${response.statusCode}');
+    }
+
+    return WhoopSyncResult.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 }
 

@@ -1,0 +1,209 @@
+import 'package:flutter/material.dart';
+
+import '../services/data_service.dart';
+import '../services/settings_service.dart';
+import 'legal_documents_page.dart';
+import '../widgets/crisis_resources_card.dart';
+
+class OnboardingConsentPage extends StatefulWidget {
+  final DataService dataService;
+  final VoidCallback onComplete;
+
+  const OnboardingConsentPage({
+    super.key,
+    required this.dataService,
+    required this.onComplete,
+  });
+
+  @override
+  State<OnboardingConsentPage> createState() => _OnboardingConsentPageState();
+}
+
+class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
+  bool _healthDataConsent = false;
+  bool _privacyPolicyAccepted = false;
+  bool _notEmergencyCareAcknowledged = false;
+  bool _researchDataSharingEnabled = false;
+  bool _cloudSyncEnabled = true;
+  bool _personalizedInsightsEnabled = true;
+  bool _keyboardTrackingEnabled = false;
+  bool _isSaving = false;
+
+  bool get _canContinue =>
+      _healthDataConsent &&
+      _privacyPolicyAccepted &&
+      _notEmergencyCareAcknowledged;
+
+  Future<void> _save() async {
+    if (!_canContinue) {
+      return;
+    }
+    setState(() => _isSaving = true);
+    await SettingsService.saveConsentPreferences(
+      healthDataConsent: _healthDataConsent,
+      privacyPolicyAccepted: _privacyPolicyAccepted,
+      notEmergencyCareAcknowledged: _notEmergencyCareAcknowledged,
+      researchDataSharingEnabled: _researchDataSharingEnabled,
+      cloudSyncEnabled: _cloudSyncEnabled,
+      personalizedInsightsEnabled: _personalizedInsightsEnabled,
+      keyboardTrackingEnabled: _keyboardTrackingEnabled,
+    );
+    await widget.dataService.syncPrivacyConsentToCloud();
+    if (mounted) {
+      setState(() => _isSaving = false);
+      widget.onComplete();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Consent and safety')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'Before using Navi',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Navi uses sensitive mental health and wellbeing data to provide journaling, mood insights, audio logs, and longitudinal patterns. These choices control what is allowed.',
+            ),
+            const SizedBox(height: 16),
+            const CrisisResourcesCard(),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              value: _notEmergencyCareAcknowledged,
+              onChanged: (value) {
+                setState(() {
+                  _notEmergencyCareAcknowledged = value ?? false;
+                });
+              },
+              title: const Text('I understand Navi is not emergency care'),
+              subtitle: const Text(
+                'Navi does not provide diagnosis, treatment, crisis monitoring, or emergency response.',
+              ),
+            ),
+            CheckboxListTile(
+              value: _healthDataConsent,
+              onChanged: (value) {
+                setState(() {
+                  _healthDataConsent = value ?? false;
+                });
+              },
+              title: const Text(
+                'I consent to processing my mental health data',
+              ),
+              subtitle: const Text(
+                'This includes journal text, mood signals, audio metadata, analysis outputs, and related wellbeing patterns used by app features.',
+              ),
+            ),
+            CheckboxListTile(
+              value: _privacyPolicyAccepted,
+              onChanged: (value) {
+                setState(() {
+                  _privacyPolicyAccepted = value ?? false;
+                });
+              },
+              title: const Text('I accept the privacy and safety terms'),
+              subtitle: const Text(
+                'I understand my settings can be changed later, and optional research sharing is separate from app use.',
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.privacy_tip_outlined),
+                  label: const Text('Read privacy policy'),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LegalDocumentsPage(),
+                      ),
+                    );
+                  },
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.description_outlined),
+                  label: const Text('Read terms'),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const LegalDocumentsPage(initialTabIndex: 1),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              value: _cloudSyncEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _cloudSyncEnabled = value;
+                });
+              },
+              title: const Text('Cloud sync'),
+              subtitle: const Text(
+                'Store app data in your signed-in cloud account for backup and cross-device use.',
+              ),
+            ),
+            SwitchListTile(
+              value: _personalizedInsightsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _personalizedInsightsEnabled = value;
+                });
+              },
+              title: const Text('Personalized insights'),
+              subtitle: const Text(
+                'Use your saved data to calculate trends, predictions, and longitudinal patterns inside Navi.',
+              ),
+            ),
+            SwitchListTile(
+              value: _researchDataSharingEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _researchDataSharingEnabled = value;
+                });
+              },
+              title: const Text('Contribute de-identified research data'),
+              subtitle: const Text(
+                'Optional. Allows aggregated/de-identified feature records to be shared for model improvement and possible long-term academic research.',
+              ),
+            ),
+            SwitchListTile(
+              value: _keyboardTrackingEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _keyboardTrackingEnabled = value;
+                });
+              },
+              title: const Text('In-app typing rhythm tracking'),
+              subtitle: const Text(
+                'Optional. Stores aggregate typing cadence, correction, and pause features from Navi text fields. Typed content and individual keys are not stored.',
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _canContinue && !_isSaving ? _save : null,
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Continue'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

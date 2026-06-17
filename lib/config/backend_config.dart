@@ -7,7 +7,7 @@ class BackendConfig {
   static const int port = SettingsService.defaultPort;
 
   /// Get the appropriate backend base URL.
-  /// Uses a saved custom URL if present; otherwise WiFi or localhost.
+  /// Uses a saved custom URL if present; hosted web falls back to Cloud Run.
   static String get baseUrl => SettingsService.effectiveBaseUrl;
 
   /// Get auth headers for API requests

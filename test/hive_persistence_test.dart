@@ -6,6 +6,7 @@ import 'package:navi_personal/models/audio_entry.dart';
 import 'package:navi_personal/models/evaluation_feedback.dart';
 import 'package:navi_personal/models/journal_entry.dart';
 import 'package:navi_personal/models/keyboard_session_entry.dart';
+import 'package:navi_personal/models/navi_beacon_sample.dart';
 import 'package:navi_personal/services/ml_export_services.dart';
 
 void main() {
@@ -25,6 +26,9 @@ void main() {
     }
     if (!Hive.isAdapterRegistered(3)) {
       Hive.registerAdapter(KeyboardSessionEntryAdapter());
+    }
+    if (!Hive.isAdapterRegistered(4)) {
+      Hive.registerAdapter(NaviBeaconSampleAdapter());
     }
   });
 
@@ -154,6 +158,45 @@ void main() {
     expect(persisted.correctionRate, closeTo(entry.correctionRate, 0.001));
   });
 
+  test(
+    'navi beacon samples persist after closing and reopening Hive',
+    () async {
+      final firstOpen = await Hive.openBox<NaviBeaconSample>(
+        'navi_beacon_samples_shared',
+      );
+      final capturedAt = DateTime(2026, 1, 5, 8, 30);
+      final sample = NaviBeaconSample(
+        id: NaviBeaconSample.canonicalId(capturedAt, 'test-beacon'),
+        capturedAt: capturedAt,
+        heartRate: 72,
+        temperatureC: 36.4,
+        lux: 180,
+        activity: 'walking',
+        batteryPercent: 84,
+        accelerationX: 0.1,
+        accelerationY: -0.1,
+        accelerationZ: 0.98,
+        motionMagnitude: 0.18,
+        signalQuality: 90,
+        sourceDeviceId: 'test-beacon',
+      );
+
+      await firstOpen.put(sample.id, sample);
+      await firstOpen.close();
+
+      final secondOpen = await Hive.openBox<NaviBeaconSample>(
+        'navi_beacon_samples_shared',
+      );
+      final persisted = secondOpen.get(sample.id);
+
+      expect(persisted, isNotNull);
+      expect(persisted!.heartRate, 72);
+      expect(persisted.temperatureC, closeTo(36.4, 0.001));
+      expect(persisted.activity, 'walking');
+      expect(persisted.sourceDeviceId, 'test-beacon');
+    },
+  );
+
   test('daily feature export includes keyboard aggregates', () async {
     final journalBox = await Hive.openBox<JournalEntry>('journal_shared');
     final day = DateTime(2026, 1, 6);
@@ -193,5 +236,60 @@ void main() {
     expect(records.single['keyboard_late_night_ratio'], 1);
     expect(records.single['keyboard_platform_web'], 1);
     expect(records.single['missing_keyboard'], 0);
+  });
+
+  test('daily feature export includes navi beacon aggregates', () async {
+    final journalBox = await Hive.openBox<JournalEntry>('journal_shared');
+    final day = DateTime(2026, 1, 7);
+    await journalBox.put(
+      'journal-beacon-1',
+      JournalEntry(
+        id: 'journal-beacon-1',
+        date: day,
+        text: 'I got outside today.',
+        sentimentScore: 0.5,
+      ),
+    );
+
+    final samples = [
+      NaviBeaconSample(
+        id: 'beacon-1',
+        capturedAt: DateTime(2026, 1, 7, 10),
+        heartRate: 70,
+        temperatureC: 36.2,
+        lux: 100,
+        activity: 'still',
+        batteryPercent: 90,
+        motionMagnitude: 0.04,
+        sourceDeviceId: 'test-beacon',
+      ),
+      NaviBeaconSample(
+        id: 'beacon-2',
+        capturedAt: DateTime(2026, 1, 7, 10, 5),
+        heartRate: 80,
+        temperatureC: 36.6,
+        lux: 300,
+        activity: 'walking',
+        batteryPercent: 88,
+        motionMagnitude: 0.25,
+        sourceDeviceId: 'test-beacon',
+      ),
+    ];
+
+    final records = MLExportService.buildDailyFeatureRecords(
+      journalBox,
+      beaconSamples: samples,
+    );
+
+    expect(records, hasLength(1));
+    expect(records.single['beacon_sample_count'], 2);
+    expect(records.single['beacon_hr_avg'], closeTo(75, 0.001));
+    expect(records.single['beacon_lux_avg'], closeTo(200, 0.001));
+    expect(records.single['beacon_activity_still_ratio'], closeTo(0.5, 0.001));
+    expect(
+      records.single['beacon_activity_walking_ratio'],
+      closeTo(0.5, 0.001),
+    );
+    expect(records.single['missing_biometrics'], 0);
   });
 }

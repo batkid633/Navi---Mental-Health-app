@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 
 import '../legal/legal_content.dart';
@@ -33,7 +34,12 @@ class SettingsService {
   };
   static const String currentConsentVersion = LegalContent.consentVersion;
   static const int defaultPort = 8000;
-  static const String defaultBackendUrl = String.fromEnvironment('BACKEND_URL');
+  static const String productionBackendUrl =
+      'https://navi-backend-zcp5ib6peq-uc.a.run.app';
+  static const String defaultBackendUrl = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: productionBackendUrl,
+  );
 
   static Box<dynamic>? _box;
 
@@ -125,7 +131,7 @@ class SettingsService {
 
   static String get effectiveBaseUrl {
     final customUrl = backendUrl.trim();
-    if (customUrl.isNotEmpty) {
+    if (customUrl.isNotEmpty && !_isReleaseWebLocalUrl(customUrl)) {
       return _normalizeUrl(customUrl);
     }
 
@@ -139,6 +145,20 @@ class SettingsService {
     }
 
     return 'http://127.0.0.1:$defaultPort';
+  }
+
+  static bool _isReleaseWebLocalUrl(String value) {
+    if (!kIsWeb || !kReleaseMode) {
+      return false;
+    }
+    return _isLocalBackendUrl(value);
+  }
+
+  static bool _isLocalBackendUrl(String value) {
+    final normalized = _normalizeUrl(value);
+    return normalized.startsWith('http://127.0.0.1') ||
+        normalized.startsWith('http://localhost') ||
+        normalized.startsWith('http://10.0.2.2');
   }
 
   static Future<void> saveUseWiFi(bool value) async {
@@ -314,7 +334,10 @@ class SettingsService {
     }
 
     final normalizedUrl = _normalizeUrl(savedUrl);
-    final migratedUrl = _backendUrlAliases[normalizedUrl] ?? normalizedUrl;
+    final migratedUrl =
+        kIsWeb && kReleaseMode && _isLocalBackendUrl(normalizedUrl)
+        ? productionBackendUrl
+        : _backendUrlAliases[normalizedUrl] ?? normalizedUrl;
     if (migratedUrl != savedUrl) {
       await _box?.put(_keyBackendUrl, migratedUrl);
     }

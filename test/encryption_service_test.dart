@@ -80,4 +80,66 @@ void main() {
       throwsA(isA<SecretBoxAuthenticationError>()),
     );
   });
+
+  test('recovery kit exports legacy cloud keys when present', () async {
+    final originalDevice = EncryptionService(memoryStore: {});
+    final oldEncrypted = await originalDevice.encryptJson('user-1', {
+      'text': 'encrypted with the original cloud key',
+    });
+
+    final otherDevice = EncryptionService(memoryStore: {});
+    final otherDeviceKit = await otherDevice.exportRecoveryKit(
+      'user-1',
+      'correct horse battery',
+    );
+    await originalDevice.importRecoveryKit(
+      'user-1',
+      'correct horse battery',
+      otherDeviceKit,
+    );
+    final newEncrypted = await originalDevice.encryptJson('user-1', {
+      'text': 'encrypted with the imported cloud key',
+    });
+
+    final keyringKit = await originalDevice.exportRecoveryKit(
+      'user-1',
+      'new recovery passphrase',
+    );
+    final restoredDevice = EncryptionService(memoryStore: {});
+    await restoredDevice.importRecoveryKit(
+      'user-1',
+      'new recovery passphrase',
+      keyringKit,
+    );
+
+    final oldDecrypted = await restoredDevice.decryptJson(
+      'user-1',
+      oldEncrypted,
+    );
+    final newDecrypted = await restoredDevice.decryptJson(
+      'user-1',
+      newEncrypted,
+    );
+    expect(oldDecrypted['text'], 'encrypted with the original cloud key');
+    expect(newDecrypted['text'], 'encrypted with the imported cloud key');
+  });
+
+  test(
+    'account cloud keyring makes encrypted data portable across devices',
+    () async {
+      final webDevice = EncryptionService(memoryStore: {});
+      final encrypted = await webDevice.encryptJson('user-1', {
+        'text': 'portable journal text',
+      });
+      final accountKeyring = await webDevice.exportCloudKeyringForUser(
+        'user-1',
+      );
+
+      final mobileDevice = EncryptionService(memoryStore: {});
+      await mobileDevice.importCloudKeyringForUser('user-1', accountKeyring);
+
+      final decrypted = await mobileDevice.decryptJson('user-1', encrypted);
+      expect(decrypted['text'], 'portable journal text');
+    },
+  );
 }

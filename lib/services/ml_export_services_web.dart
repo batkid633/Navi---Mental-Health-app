@@ -2,10 +2,15 @@ import '../services/insights_service.dart';
 import '../models/audio_entry.dart';
 import '../models/journal_entry.dart';
 import '../models/keyboard_session_entry.dart';
+import '../models/navi_beacon_sample.dart';
 import '../models/baseline_deviation_model.dart';
+import '../legal/legal_content.dart';
 import 'package:hive/hive.dart';
 
 class MLExportService {
+  static const String researchSchemaName = 'navi_research_daily_features';
+  static const String researchSchemaVersion = '1.0.0';
+
   static Map<DateTime, double> computeNextDayDelta(
     Map<DateTime, double> dailyAvg,
   ) {
@@ -32,6 +37,7 @@ class MLExportService {
     Box<JournalEntry> journalBox, {
     Iterable<AudioEntry> audioEntries = const [],
     Iterable<KeyboardSessionEntry> keyboardSessions = const [],
+    Iterable<NaviBeaconSample> beaconSamples = const [],
   }) {
     final dailyAvg = InsightsService.dailyAverageSentiment(journalBox);
     final rolling7 = InsightsService.rollingAverage(dailyAvg, 7);
@@ -40,6 +46,7 @@ class MLExportService {
     final nextDelta = computeNextDayDelta(dailyAvg);
     final audioByDay = _audioFeatureRecords(audioEntries);
     final keyboardByDay = _keyboardFeatureRecords(keyboardSessions);
+    final beaconByDay = _beaconFeatureRecords(beaconSamples);
 
     final records = <Map<String, dynamic>>[];
     final sortedDays = dailyAvg.keys.toList()..sort();
@@ -52,9 +59,24 @@ class MLExportService {
         rollingMean: rolling7[date]!,
         rollingStd: vol7[date]!,
       );
+      final generatedAt = DateTime.now().toUtc().toIso8601String();
 
       records.add({
         'date': date.toIso8601String().substring(0, 10),
+        'schema_name': researchSchemaName,
+        'schema_version': researchSchemaVersion,
+        'generated_at': generatedAt,
+        'record_type': 'daily_feature_summary',
+        'source_system': 'navi_flutter_app',
+        'consent_scope': 'optional_research_sharing',
+        'consent_version': LegalContent.consentVersion,
+        'privacy_policy_version': LegalContent.privacyPolicyVersion,
+        'terms_version': LegalContent.termsVersion,
+        'data_classification': 'coded_research_feature',
+        'identifiability': 'coded',
+        'raw_text_included': false,
+        'raw_audio_included': false,
+        'research_use_allowed': true,
         'sentiment_today': dailyAvg[date],
         'rolling_mean_7': rolling7[date],
         'volatility_7': vol7[date],
@@ -65,8 +87,9 @@ class MLExportService {
         'Next_day_delta': nextDelta[date],
         ...?audioByDay[_dateKey(date)],
         ...?keyboardByDay[_dateKey(date)],
+        ...?beaconByDay[_dateKey(date)],
         'missing_journal': 0,
-        'missing_biometrics': 1,
+        'missing_biometrics': beaconByDay.containsKey(_dateKey(date)) ? 0 : 1,
         'missing_audio': audioByDay.containsKey(_dateKey(date)) ? 0 : 1,
         'missing_keyboard': keyboardByDay.containsKey(_dateKey(date)) ? 0 : 1,
         'missing_sleep': 1,
@@ -183,6 +206,68 @@ class MLExportService {
         'keyboard_platform_desktop': total == 0
             ? 0.0
             : platformCount('desktop') / total,
+      });
+    });
+  }
+
+  static Map<String, Map<String, dynamic>> _beaconFeatureRecords(
+    Iterable<NaviBeaconSample> samples,
+  ) {
+    final grouped = <String, List<NaviBeaconSample>>{};
+    for (final sample in samples) {
+      grouped.putIfAbsent(_dateKey(sample.capturedAt), () => []).add(sample);
+    }
+
+    double average(Iterable<num?> values) {
+      final list = values
+          .where((value) => value != null)
+          .map((value) => value!.toDouble())
+          .toList();
+      if (list.isEmpty) return 0.0;
+      return list.reduce((a, b) => a + b) / list.length;
+    }
+
+    int? minInt(Iterable<int?> values) {
+      final list = values.whereType<int>().toList();
+      if (list.isEmpty) return null;
+      list.sort();
+      return list.first;
+    }
+
+    int? maxInt(Iterable<int?> values) {
+      final list = values.whereType<int>().toList();
+      if (list.isEmpty) return null;
+      list.sort();
+      return list.last;
+    }
+
+    return grouped.map((date, samples) {
+      final total = samples.length;
+      double activityRatio(String activity) {
+        if (total == 0) return 0.0;
+        return samples.where((sample) => sample.activity == activity).length /
+            total;
+      }
+
+      return MapEntry(date, {
+        'beacon_sample_count': total,
+        'beacon_hr_avg': average(samples.map((sample) => sample.heartRate)),
+        'beacon_hr_min': minInt(samples.map((sample) => sample.heartRate)),
+        'beacon_hr_max': maxInt(samples.map((sample) => sample.heartRate)),
+        'beacon_temp_c_avg': average(
+          samples.map((sample) => sample.temperatureC),
+        ),
+        'beacon_lux_avg': average(samples.map((sample) => sample.lux)),
+        'beacon_motion_avg': average(
+          samples.map((sample) => sample.motionMagnitude),
+        ),
+        'beacon_battery_avg': average(
+          samples.map((sample) => sample.batteryPercent),
+        ),
+        'beacon_activity_still_ratio': activityRatio('still'),
+        'beacon_activity_walking_ratio': activityRatio('walking'),
+        'beacon_activity_running_ratio': activityRatio('running'),
+        'beacon_activity_restless_ratio': activityRatio('restless'),
       });
     });
   }

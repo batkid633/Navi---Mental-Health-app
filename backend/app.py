@@ -12,6 +12,7 @@ import tempfile
 import os
 import sys
 from datetime import datetime, timedelta
+from typing import Any
 import json
 import logging
 import traceback
@@ -29,6 +30,14 @@ if str(BACKEND_DIR) not in sys.path:
 try:
     from config import BACKEND_DIR, SETTINGS, config_check
     from auth import CurrentUser, get_current_user, require_admin
+    from analytics_ingestion import analytics_sink, normalize_event
+    from research_schema import (
+        MODEL_DATASET_COLUMNS,
+        RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
+        RESEARCH_DAILY_FEATURE_SCHEMA_VERSION,
+        enrich_research_record,
+        model_dataset_frame,
+    )
     from sentiment.vader import analyze_sentiment
     from ml.predict_mood import predict_next_day
     from ml.trajectory_model import predict_trajectory
@@ -56,6 +65,14 @@ try:
 except ModuleNotFoundError:
     from .config import BACKEND_DIR, SETTINGS, config_check
     from .auth import CurrentUser, get_current_user, require_admin
+    from .analytics_ingestion import analytics_sink, normalize_event
+    from .research_schema import (
+        MODEL_DATASET_COLUMNS,
+        RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
+        RESEARCH_DAILY_FEATURE_SCHEMA_VERSION,
+        enrich_research_record,
+        model_dataset_frame,
+    )
     from .sentiment.vader import analyze_sentiment
     from .ml.predict_mood import predict_next_day
     from .ml.trajectory_model import predict_trajectory
@@ -179,6 +196,12 @@ def _resolve_training_csv_path(path_value: str) -> Path:
         raise HTTPException(status_code=400, detail="Training data must be a CSV file")
     return resolved
 
+
+def _model_to_dict(model: BaseModel) -> dict[str, Any]:
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    return model.dict()
+
 def _cors_origins() -> list[str]:
     configured = os.getenv("ALLOW_CORS_FROM", "")
     origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
@@ -248,6 +271,38 @@ def log_product_event(
             "metadata": safe_metadata,
         },
     )
+    try:
+        normalized_event = normalize_event(
+            event_id=None,
+            event_name=event_name,
+            user_id=current_user.uid,
+            properties=safe_metadata,
+            platform=None,
+            app_version=None,
+            client_schema_version=None,
+            session_id=None,
+            client_recorded_at=None,
+            source="backend",
+        )
+        result = analytics_sink.insert_events([normalized_event])
+        if result.get("errors"):
+            logger.warning(
+                "backend_product_event_bigquery_errors",
+                extra={
+                    "event_name": "analytics_ingestion_failed",
+                    "user_hash": _user_hash(current_user.uid),
+                    "metadata": {"event_name": event_name},
+                },
+            )
+    except Exception:
+        logger.exception(
+            "backend_product_event_bigquery_failed",
+            extra={
+                "event_name": "analytics_ingestion_failed",
+                "user_hash": _user_hash(current_user.uid),
+                "metadata": {"event_name": event_name},
+            },
+        )
 
 
 def _is_rate_limited(request: Request) -> bool:
@@ -395,6 +450,101 @@ def log_prediction_event(event: dict):
 class JournalRequest(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
 
+
+class AnalyticsEventRequest(BaseModel):
+    event_id: str | None = None
+    name: str = Field(min_length=1, max_length=120)
+    properties: dict[str, Any] = Field(default_factory=dict)
+    platform: str | None = None
+    app_version: str | None = None
+    schema_version: str | None = None
+    session_id: str | None = None
+    client_recorded_at: str | None = None
+
+
+class AnalyticsBatchRequest(BaseModel):
+    events: list[AnalyticsEventRequest] = Field(default_factory=list)
+
+
+@app.post("/analytics/events")
+def ingest_analytics_events(
+    req: AnalyticsBatchRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    if not req.events:
+        return {
+            "accepted": 0,
+            "bigquery_enabled": analytics_sink.enabled,
+            "inserted": 0,
+        }
+    if len(req.events) > 50:
+        raise HTTPException(status_code=422, detail="At most 50 events per batch")
+
+    normalized_events = [
+        normalize_event(
+            event_id=event.event_id,
+            event_name=event.name,
+            user_id=current_user.uid,
+            properties=event.properties,
+            platform=event.platform,
+            app_version=event.app_version,
+            client_schema_version=event.schema_version,
+            session_id=event.session_id,
+            client_recorded_at=event.client_recorded_at,
+            source="flutter_app",
+        )
+        for event in req.events
+    ]
+
+    try:
+        result = analytics_sink.insert_events(normalized_events)
+    except Exception as exc:
+        logger.exception(
+            "analytics_bigquery_insert_failed",
+            extra={
+                "event_name": "analytics_ingestion_failed",
+                "user_hash": _user_hash(current_user.uid),
+                "metadata": {"event_count": len(normalized_events)},
+            },
+        )
+        raise HTTPException(status_code=503, detail="Analytics ingestion unavailable") from exc
+
+    if result.get("errors"):
+        logger.error(
+            "analytics_bigquery_insert_errors",
+            extra={
+                "event_name": "analytics_ingestion_failed",
+                "user_hash": _user_hash(current_user.uid),
+                "metadata": {
+                    "event_count": len(normalized_events),
+                    "error_count": len(result["errors"]),
+                },
+            },
+        )
+        raise HTTPException(status_code=503, detail="Analytics ingestion failed")
+
+    for event in normalized_events:
+        MONITORING_STATE["product_events"][event.event_name] += 1
+        logger.info(
+            "product_event",
+            extra={
+                "event_name": event.event_name,
+                "user_hash": event.firebase_uid_hash[:12],
+                "metadata": {
+                    "source": event.event_source,
+                    "platform": event.platform,
+                    "bigquery_enabled": result.get("enabled", False),
+                },
+            },
+        )
+
+    return {
+        "accepted": len(normalized_events),
+        "bigquery_enabled": result.get("enabled", False),
+        "inserted": result.get("inserted", 0),
+    }
+
+
 @app.post("/sentiment")
 def sentiment_endpoint(req: JournalRequest, current_user: CurrentUser = Depends(get_current_user)):
     try:
@@ -419,6 +569,20 @@ class AudioTrainRequest(BaseModel):
 
 class DailyFeatureRecord(BaseModel):
     date: str = Field(min_length=8, max_length=40)
+    schema_name: str | None = None
+    schema_version: str | None = None
+    generated_at: str | None = None
+    record_type: str | None = None
+    source_system: str | None = None
+    consent_scope: str | None = None
+    consent_version: str | None = None
+    privacy_policy_version: str | None = None
+    terms_version: str | None = None
+    data_classification: str | None = None
+    identifiability: str | None = None
+    raw_text_included: bool | None = None
+    raw_audio_included: bool | None = None
+    research_use_allowed: bool | None = None
     sentiment_today: float
     rolling_mean_7: float | None = None
     volatility_7: float | None = None
@@ -773,13 +937,17 @@ def save_daily_features(
             "reason": "auth_disabled_local_dev",
         }
 
-    rows = [record.dict() for record in req.records]
+    rows = [_model_to_dict(record) for record in req.records]
     for row in rows:
         row["date"] = _parse_iso_date(str(row.get("date") or ""))
     if not rows:
         return {"saved": 0}
 
-    df = pd.DataFrame(rows)
+    rows = [
+        enrich_research_record(row, user_id_hash=_user_hash(current_user.uid))
+        for row in rows
+    ]
+    df = model_dataset_frame(rows)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
     df = df.sort_values("date")
@@ -792,7 +960,12 @@ def save_daily_features(
     log_product_event(
         "daily_features_saved",
         current_user,
-        {"saved": len(df), "durable_saved": durable_saved},
+        {
+            "saved": len(df),
+            "durable_saved": durable_saved,
+            "schema_name": RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
+            "schema_version": RESEARCH_DAILY_FEATURE_SCHEMA_VERSION,
+        },
     )
 
     return {
@@ -800,6 +973,9 @@ def save_daily_features(
         "durable_saved": durable_saved,
         "feature_path": str(feature_path),
         "dataset_path": str(dataset_path),
+        "schema_name": RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
+        "schema_version": RESEARCH_DAILY_FEATURE_SCHEMA_VERSION,
+        "model_columns": MODEL_DATASET_COLUMNS,
     }
 
 from ml.insight_trends import load_insight_trends
@@ -1178,6 +1354,7 @@ def _merge_biometric_metrics_into_user_dataset(
 
     df = df.reset_index(drop=True).sort_values("date")
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date.astype(str)
+    df = model_dataset_frame(df.to_dict("records"))
     dataset_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(dataset_path, index=False)
     df.to_csv(user_daily_features_path(user_id), index=False)

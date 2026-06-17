@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to record audio logs for mood tracking.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Navi uses Bluetooth to connect to your Navi Beacon biometric sensor.</string>
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyAccessedAPITypes</key>

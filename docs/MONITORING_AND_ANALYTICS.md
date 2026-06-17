@@ -4,6 +4,7 @@ Navi uses two lightweight production signals:
 
 1. GCP operational monitoring for backend health.
 2. Firebase user-scoped product analytics for app behavior.
+3. Optional BigQuery ingestion for admin product analytics.
 
 ## Backend Monitoring
 
@@ -36,7 +37,7 @@ Recommended GCP setup:
 - Create log-based metrics for `message="product_event"`.
 - Add alerts for elevated 5xx errors, high latency, and repeated timeouts.
 - Add budget alerts for beta cloud spend.
-- Add Firebase Crashlytics before physical-device beta testing.
+- Validate Firebase Crashlytics before physical-device beta testing.
 
 Starter monitoring assets now live in `gcp/monitoring/`, with setup notes in
 `docs/GCP_MONITORING_SETUP.md`.
@@ -77,3 +78,10 @@ The most useful early product metrics are:
 
 These metrics show whether the product is usable and reliable without turning
 sensitive mental health content into analytics data.
+
+## BigQuery Warehouse
+
+For aggregate admin analysis, the Flutter app also sends the same privacy-safe
+events to `POST /analytics/events`. When `ANALYTICS_BIGQUERY_ENABLED=true`, the
+backend writes normalized rows to BigQuery. See `docs/BIGQUERY_ANALYTICS.md` for
+the schema, setup script, event catalog, and starter queries.

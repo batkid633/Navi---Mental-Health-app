@@ -91,11 +91,14 @@ Navi uses Firebase and Google Cloud:
 - Secret Manager for production secrets
 - Cloud Logging via Cloud Run stdout
 - Cloud Monitoring through health checks, log-based metrics, and alert policies
+- BigQuery analytics ingestion for privacy-safe product events
 
 Monitoring docs:
 
 - `docs/MONITORING_AND_ANALYTICS.md`
 - `docs/GCP_MONITORING_SETUP.md`
+- `docs/BIGQUERY_ANALYTICS.md`
+- `docs/RESEARCH_DATA_SCHEMA.md`
 
 Before beta, verify that Cloud Monitoring uptime checks, alert policies, notification channels, budget alerts, and Firebase Crashlytics are active in the actual GCP/Firebase console.
 
@@ -149,6 +152,11 @@ GOOGLE_HEALTH_REDIRECT_URI=https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/c
 ALLOW_CORS_FROM=<firebase-hosting-origin-or-app-domain>
 ADMIN_ACCESS_UIDS=<comma-separated-admin-firebase-uids>
 MONITORING_ACCESS_UIDS=<comma-separated-admin-firebase-uids>
+ANALYTICS_BIGQUERY_ENABLED=false
+ANALYTICS_BIGQUERY_PROJECT_ID=<gcp-project-id>
+ANALYTICS_BIGQUERY_DATASET=navi_analytics
+ANALYTICS_BIGQUERY_TABLE=product_events
+ANALYTICS_UID_HASH_SALT_SECRET=analytics-uid-hash-salt
 ```
 
 The exact `WHOOP_REDIRECT_URI` must also be registered in the WHOOP developer dashboard for the Navi OAuth client.
@@ -180,7 +188,7 @@ Before external beta testing:
 - Set real `ADMIN_ACCESS_UIDS` and `MONITORING_ACCESS_UIDS`.
 - Replace placeholder CORS domains.
 - Enable GCP uptime checks, log-based metrics, alert policies, and budget alerts.
-- Add Firebase Crashlytics for mobile builds.
+- Validate Firebase Crashlytics on physical Android/iOS builds.
 - Verify account/data deletion end to end.
 - Verify export includes local, cloud, backend, and evaluation feedback data.
 - Test cloud sync on/off behavior.
@@ -208,5 +216,6 @@ Primary development priorities:
 2. Mobile physical-device testing.
 3. Test cleanup and analyzer cleanup.
 4. Evaluation feedback export/admin review.
-5. Model validation over longitudinal personal/beta use.
-6. Legal/privacy/security review before broader use with sensitive mental health data.
+5. Research data schema validation and IRB-ready study packet.
+6. Model validation over longitudinal personal/beta use.
+7. Legal/privacy/security review before broader use with sensitive mental health data.

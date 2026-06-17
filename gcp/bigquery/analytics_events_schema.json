@@ -1,0 +1,110 @@
+[
+  {
+    "name": "event_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Client-generated event id used for BigQuery streaming de-duplication."
+  },
+  {
+    "name": "event_name",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Normalized privacy-safe product event name."
+  },
+  {
+    "name": "event_timestamp",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Client-recorded event time in UTC."
+  },
+  {
+    "name": "received_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Backend ingestion time in UTC."
+  },
+  {
+    "name": "event_date",
+    "type": "DATE",
+    "mode": "REQUIRED",
+    "description": "UTC event date, used for partitioning and daily analytics."
+  },
+  {
+    "name": "event_source",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Source system, for example flutter_app or backend."
+  },
+  {
+    "name": "platform",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Client platform such as web, android, ios, macos, or windows."
+  },
+  {
+    "name": "app_version",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "App version/build supplied by the client."
+  },
+  {
+    "name": "service_name",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Backend service name that ingested the event."
+  },
+  {
+    "name": "service_version",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Backend service revision/version that ingested the event."
+  },
+  {
+    "name": "environment",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Runtime environment such as development or production."
+  },
+  {
+    "name": "schema_version",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Backend analytics row schema version."
+  },
+  {
+    "name": "client_schema_version",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Client analytics payload schema version supplied by the app."
+  },
+  {
+    "name": "data_classification",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Data handling class. Product analytics rows must not contain raw health content."
+  },
+  {
+    "name": "contains_health_content",
+    "type": "BOOLEAN",
+    "mode": "NULLABLE",
+    "description": "False when the row contains no raw journal text, audio, transcripts, names, emails, or biometric values."
+  },
+  {
+    "name": "firebase_uid_hash",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "HMAC-SHA256 hash prefix of the Firebase UID. Raw UID is never exported."
+  },
+  {
+    "name": "session_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Ephemeral app session id generated at startup."
+  },
+  {
+    "name": "properties_json",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Bounded JSON object of primitive privacy-safe event properties."
+  }
+]

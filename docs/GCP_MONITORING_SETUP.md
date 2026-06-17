@@ -75,7 +75,7 @@ For beta, include Firebase/Firestore/Storage, Cloud Run, Artifact Registry, Secr
 
 ## Firebase Monitoring
 
-Before mobile beta, add Firebase Crashlytics. This repo does not yet include Crashlytics dependencies.
+Before mobile beta, validate Firebase Crashlytics on physical Android/iOS builds.
 
 Recommended beta signals:
 

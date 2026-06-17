@@ -25,6 +25,7 @@ https://navi-backend-zcp5ib6peq-uc.a.run.app
 - Secret Manager
 - Cloud Logging
 - Cloud Monitoring
+- BigQuery
 
 Cloud SQL and Pub/Sub are not required for the current beta path unless you intentionally add them later.
 
@@ -100,6 +101,11 @@ Important values:
 - `GOOGLE_HEALTH_REDIRECT_URI=https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/callback`
 - `ADMIN_ACCESS_UIDS=<your Firebase UID>`
 - `MONITORING_ACCESS_UIDS=<your Firebase UID>`
+- `ANALYTICS_BIGQUERY_ENABLED=true`
+- `ANALYTICS_BIGQUERY_PROJECT_ID=project-bc878e6c-6f53-4f24-88a`
+- `ANALYTICS_BIGQUERY_DATASET=navi_analytics`
+- `ANALYTICS_BIGQUERY_TABLE=product_events`
+- `ANALYTICS_UID_HASH_SALT_SECRET=analytics-uid-hash-salt`
 
 Register the same `WHOOP_REDIRECT_URI` in the WHOOP developer dashboard for the Navi OAuth client before testing the connection flow.
 Register the same `GOOGLE_HEALTH_REDIRECT_URI` in the Google Cloud OAuth client before testing Google Health/Fitbit migration auth.
@@ -129,6 +135,24 @@ Repeat the same grant for the Google Health token secret after creating it.
 ```
 
 See `docs/GCP_MONITORING_SETUP.md` for details.
+
+## BigQuery Analytics
+
+Create the analytics dataset/table before enabling ingestion:
+
+```powershell
+.\gcp\bigquery\setup-bigquery-analytics.ps1 `
+  -ProjectId "project-bc878e6c-6f53-4f24-88a" `
+  -Dataset "navi_analytics" `
+  -Table "product_events" `
+  -Location "US"
+```
+
+The current project already has `analytics-uid-hash-salt`, Cloud Run Secret
+Manager access, BigQuery writer IAM, and `ANALYTICS_BIGQUERY_ENABLED=true`.
+
+See `docs/BIGQUERY_ANALYTICS.md` for the schema, event catalog, and starter
+queries.
 
 ## Beta Checklist
 

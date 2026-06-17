@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -8,8 +9,10 @@ import '../config/backend_config.dart';
 import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import '../services/settings_service.dart';
+import '../services/cloud_persistence_service.dart';
 import '../services/data_service.dart';
 import '../services/health_tracker_service.dart';
+import '../services/navi_beacon_ble_service.dart';
 import '../services/notification_service.dart';
 import '../utils/data_export_saver.dart';
 import 'legal_documents_page.dart';
@@ -43,14 +46,25 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isManagingRecovery = false;
   bool _isDeletingAccount = false;
   bool _isCheckingBackend = false;
+  bool _isCheckingCloudJournal = false;
   bool _isSyncingNotifications = false;
   final Map<HealthTrackerProvider, HealthTrackerStatus> _trackerStatuses = {};
   final Map<HealthTrackerProvider, String> _trackerRedirectUris = {};
   final Map<HealthTrackerProvider, String> _trackerAuthUrls = {};
   HealthTrackerProvider? _connectingTracker;
   HealthTrackerProvider? _syncingTracker;
+  final NaviBeaconBleService _beaconBleService = NaviBeaconBleService();
+  final List<NaviBeaconDevice> _beaconDevices = [];
+  StreamSubscription<NaviBeaconDevice>? _beaconScanSubscription;
+  StreamSubscription<NaviBeaconConnectionState>? _beaconStateSubscription;
+  NaviBeaconConnectionState _beaconConnectionState =
+      NaviBeaconConnectionState.disconnected;
+  NaviBeaconDevice? _selectedBeaconDevice;
+  int _beaconSamplesSaved = 0;
+  String? _lastBeaconSampleLabel;
   String? _statusMessage;
   _BackendHealth? _backendHealth;
+  CloudJournalInventory? _cloudJournalInventory;
 
   @override
   void initState() {
@@ -60,7 +74,104 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    _beaconScanSubscription?.cancel();
+    _beaconStateSubscription?.cancel();
+    _beaconBleService.disconnect();
     super.dispose();
+  }
+
+  void _listenForBeaconState() {
+    _beaconStateSubscription ??= _beaconBleService.connectionState.listen((
+      state,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        _beaconConnectionState = state;
+      });
+    });
+  }
+
+  Future<void> _scanForBeacon() async {
+    if (!_beaconBleService.isSupported) {
+      setState(() {
+        _statusMessage = 'Navi Beacon BLE is only supported on mobile/desktop.';
+      });
+      return;
+    }
+    _listenForBeaconState();
+    await _beaconScanSubscription?.cancel();
+    setState(() {
+      _beaconDevices.clear();
+      _selectedBeaconDevice = null;
+      _statusMessage = null;
+    });
+    await AnalyticsService.track('navi_beacon_scan_started');
+    _beaconScanSubscription = _beaconBleService.scan().listen(
+      (device) {
+        if (!mounted) return;
+        setState(() {
+          final existingIndex = _beaconDevices.indexWhere(
+            (existing) => existing.id == device.id,
+          );
+          if (existingIndex == -1) {
+            _beaconDevices.add(device);
+          } else {
+            _beaconDevices[existingIndex] = device;
+          }
+          _selectedBeaconDevice ??= device;
+        });
+      },
+      onError: (error) {
+        if (!mounted) return;
+        setState(() {
+          _statusMessage = 'Unable to scan for Navi Beacon: $error';
+        });
+      },
+    );
+  }
+
+  Future<void> _connectBeacon(NaviBeaconDevice device) async {
+    final dataService = widget.dataService;
+    if (dataService == null) {
+      setState(() {
+        _statusMessage = 'Sign in before connecting Navi Beacon.';
+      });
+      return;
+    }
+    _listenForBeaconState();
+    setState(() {
+      _selectedBeaconDevice = device;
+      _statusMessage = null;
+    });
+    await AnalyticsService.track('navi_beacon_connect_attempted');
+    try {
+      await _beaconBleService.connectAndListen(
+        device.id,
+        onSample: (sample) async {
+          await dataService.saveNaviBeaconSample(sample);
+          if (!mounted) return;
+          setState(() {
+            _beaconSamplesSaved += 1;
+            _lastBeaconSampleLabel =
+                'HR ${sample.heartRate ?? '-'} bpm, ${sample.activity}, '
+                '${sample.lux?.toStringAsFixed(0) ?? '-'} lux';
+          });
+        },
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = 'Unable to connect Navi Beacon: $error';
+      });
+    }
+  }
+
+  Future<void> _disconnectBeacon() async {
+    await _beaconBleService.disconnect();
+    if (!mounted) return;
+    setState(() {
+      _statusMessage = 'Navi Beacon disconnected.';
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -79,6 +190,45 @@ class _SettingsPageState extends State<SettingsPage> {
     });
     await _refreshTrackerStatuses();
     await _checkBackendHealth();
+    await _checkCloudJournalInventory();
+  }
+
+  Future<void> _checkCloudJournalInventory() async {
+    final dataService = widget.dataService;
+    if (dataService == null || !SettingsService.cloudSyncEnabled) {
+      if (mounted) {
+        setState(() {
+          _cloudJournalInventory = null;
+        });
+      }
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _isCheckingCloudJournal = true;
+      });
+    }
+    try {
+      final inventory = await dataService.cloudJournalInventory();
+      if (mounted) {
+        setState(() {
+          _cloudJournalInventory = inventory;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cloudJournalInventory = null;
+          _statusMessage = 'Unable to read cloud journal status: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingCloudJournal = false;
+        });
+      }
+    }
   }
 
   Future<void> _checkBackendHealth() async {
@@ -465,16 +615,26 @@ class _SettingsPageState extends State<SettingsPage> {
     });
 
     try {
+      final beforeInventory = await dataService.cloudJournalInventory(
+        forceCloudRead: true,
+      );
       await dataService.importEncryptionRecoveryKit(
         import.passphrase,
         import.recoveryKit,
       );
-      await dataService.loadFromCloud();
+      final loadResult = await dataService.loadFromCloud(forceCloudRead: true);
+      final afterInventory = await dataService.cloudJournalInventory(
+        forceCloudRead: true,
+      );
       await AnalyticsService.track('encryption_recovery_imported');
       if (!mounted) return;
       setState(() {
-        _statusMessage =
-            'Recovery kit imported. Synced encrypted data was reloaded.';
+        _cloudJournalInventory = afterInventory;
+        _statusMessage = _recoveryImportMessage(
+          loadResult,
+          beforeInventory,
+          afterInventory,
+        );
       });
     } catch (error) {
       await AnalyticsService.track('encryption_recovery_import_failed');
@@ -547,6 +707,34 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  String _recoveryImportMessage(
+    CloudLoadResult loadResult,
+    CloudJournalInventory? beforeInventory,
+    CloudJournalInventory? afterInventory,
+  ) {
+    final beforeLocked = beforeInventory?.lockedCount;
+    final afterLocked = afterInventory?.lockedCount;
+    final afterDecryptable = afterInventory?.decryptableCount;
+    final total = afterInventory?.totalCount;
+
+    if (total == 0) {
+      return 'Recovery kit imported, but no cloud journal documents were found for this account.';
+    }
+
+    if (afterLocked != null && afterLocked > 0) {
+      final changed = beforeLocked != null && beforeLocked != afterLocked
+          ? 'locked journal docs changed from $beforeLocked to $afterLocked'
+          : '$afterLocked journal docs still need a different recovery kit';
+      return 'Recovery kit imported, but $changed. Decryptable here: ${afterDecryptable ?? 0}/${total ?? 0}.';
+    }
+
+    if (loadResult.journalLoaded == 0) {
+      return 'Recovery kit imported and cloud journal is decryptable, but no new journal entries were added locally. Local journal count: ${loadResult.afterJournalCount}.';
+    }
+
+    return 'Recovery kit imported. Loaded ${loadResult.journalLoaded} cloud journal entries; local journal count is now ${loadResult.afterJournalCount}.';
   }
 
   Future<_RecoveryImport?> _promptRecoveryImport() {
@@ -836,6 +1024,229 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: TextStyle(color: colorScheme.error, fontSize: 12),
                 ),
               ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cloudJournalCard() {
+    final inventory = _cloudJournalInventory;
+    final lockedCount = inventory?.lockedCount ?? 0;
+    final hasLockedEntries = lockedCount > 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                _isCheckingCloudJournal
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        hasLockedEntries ? Icons.lock : Icons.cloud_done,
+                        color: hasLockedEntries
+                            ? Colors.orange.shade700
+                            : Colors.green.shade600,
+                      ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Cloud journal status',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Check cloud journal',
+                  onPressed: _isCheckingCloudJournal
+                      ? null
+                      : _checkCloudJournalInventory,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              'User: ${widget.authService?.currentUserId ?? 'not signed in'}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            if (inventory == null)
+              const Text('No cloud journal status loaded.')
+            else ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(
+                    label: 'Cloud docs',
+                    value: inventory.totalCount.toString(),
+                  ),
+                  _InfoChip(
+                    label: 'Decryptable here',
+                    value: inventory.decryptableCount.toString(),
+                  ),
+                  _InfoChip(
+                    label: 'Needs recovery kit',
+                    value: lockedCount.toString(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Newest cloud entry: ${_formatCloudDate(inventory.newestDate)}',
+              ),
+              Text(
+                'Newest readable entry: ${_formatCloudDate(inventory.newestDecryptableDate)}',
+              ),
+              if (hasLockedEntries) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Some encrypted entries were found in cloud but cannot be opened with this browser key. Restore your recovery kit to unlock them.',
+                  style: TextStyle(color: Colors.orange.shade800),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatCloudDate(DateTime? value) {
+    if (value == null) {
+      return 'none';
+    }
+    final local = value.toLocal();
+    return '${local.month}/${local.day}/${local.year} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _naviBeaconCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final connected =
+        _beaconConnectionState == NaviBeaconConnectionState.connected;
+    final scanning =
+        _beaconConnectionState == NaviBeaconConnectionState.scanning;
+    final connecting =
+        _beaconConnectionState == NaviBeaconConnectionState.connecting;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.sensors,
+                  color: connected
+                      ? Colors.green.shade600
+                      : colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Navi Beacon',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Chip(
+                  label: Text(switch (_beaconConnectionState) {
+                    NaviBeaconConnectionState.connected => 'Connected',
+                    NaviBeaconConnectionState.connecting => 'Connecting',
+                    NaviBeaconConnectionState.scanning => 'Scanning',
+                    NaviBeaconConnectionState.disconnected => 'Disconnected',
+                  }),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            if (_lastBeaconSampleLabel != null) ...[
+              const SizedBox(height: 8),
+              Text(_lastBeaconSampleLabel!),
+            ],
+            if (_beaconSamplesSaved > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Saved $_beaconSamplesSaved samples locally.',
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: scanning || connecting ? null : _scanForBeacon,
+                  icon: scanning
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.search),
+                  label: const Text('Scan'),
+                ),
+                if (_selectedBeaconDevice != null)
+                  FilledButton.icon(
+                    onPressed: connected || connecting
+                        ? null
+                        : () => _connectBeacon(_selectedBeaconDevice!),
+                    icon: connecting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.bluetooth_connected),
+                    label: Text(
+                      _selectedBeaconDevice!.name.isEmpty
+                          ? 'Connect'
+                          : 'Connect ${_selectedBeaconDevice!.name}',
+                    ),
+                  ),
+                IconButton(
+                  tooltip: 'Disconnect Navi Beacon',
+                  onPressed: connected ? _disconnectBeacon : null,
+                  icon: const Icon(Icons.bluetooth_disabled),
+                ),
+              ],
+            ),
+            if (_beaconDevices.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final device in _beaconDevices)
+                ListTile(
+                  leading: Icon(
+                    _selectedBeaconDevice?.id == device.id
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _selectedBeaconDevice = device;
+                    });
+                  },
+                  title: Text(
+                    device.name.isEmpty ? 'Navi Beacon' : device.name,
+                  ),
+                  subtitle: Text(
+                    device.rssi == null
+                        ? device.id
+                        : '${device.id} - RSSI ${device.rssi}',
+                  ),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
             ],
           ],
         ),
@@ -1214,6 +1625,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
+                _cloudJournalCard(),
+                const SizedBox(height: 12),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
@@ -1294,6 +1707,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   'Biometric Trackers',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
+                const SizedBox(height: 12),
+                _naviBeaconCard(),
                 const SizedBox(height: 12),
                 for (final provider in HealthTrackerProvider.values) ...[
                   _healthTrackerCard(provider),

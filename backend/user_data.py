@@ -9,6 +9,11 @@ from typing import Any
 
 import pandas as pd
 
+try:
+    from research_schema import model_dataset_frame
+except ModuleNotFoundError:
+    from .research_schema import model_dataset_frame
+
 
 BACKEND_DIR = Path(__file__).resolve().parent
 USER_DATA_DIR = BACKEND_DIR / "user_runtime_data"
@@ -111,7 +116,7 @@ def hydrate_user_dataset_from_firestore(user_id: str) -> bool:
     if not rows:
         return False
 
-    df = pd.DataFrame(rows)
+    df = model_dataset_frame(rows)
     if "date" not in df.columns:
         return False
 

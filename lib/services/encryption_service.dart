@@ -24,6 +24,47 @@ class EncryptionService {
     return _keyBytes('hive_${_scope(uid)}');
   }
 
+  Future<String> exportCloudKeyForUser(String? uid) async {
+    return base64Encode(await _keyBytes('cloud_${_scope(uid)}'));
+  }
+
+  Future<void> importCloudKeyForUser(String? uid, String encodedKey) async {
+    await importCloudKeyringForUser(uid, [encodedKey]);
+  }
+
+  Future<List<String>> exportCloudKeyringForUser(String? uid) async {
+    final scopedUid = _scope(uid);
+    return (await _cloudKeysForDecrypt(scopedUid)).map(base64Encode).toList();
+  }
+
+  Future<void> importCloudKeyringForUser(
+    String? uid,
+    List<String> encodedKeys,
+  ) async {
+    final scopedUid = _scope(uid);
+    final cloudKeys = <String, List<int>>{};
+    for (final encodedKey in encodedKeys) {
+      final cloudKey = base64Decode(encodedKey);
+      if (cloudKey.length != 32) {
+        throw const FormatException('Account cloud key has invalid length');
+      }
+      cloudKeys[base64Encode(cloudKey)] = cloudKey;
+    }
+    if (cloudKeys.isEmpty) {
+      throw const FormatException('Account cloud keyring is empty');
+    }
+    final importedKeys = cloudKeys.values.toList();
+    await _rememberCurrentCloudKeyAsLegacy(scopedUid, except: importedKeys);
+    await _write(
+      'navi_e2ee_key_cloud_$scopedUid',
+      base64Encode(importedKeys.first),
+    );
+    await _writeLegacyCloudKeys(scopedUid, [
+      ...importedKeys.skip(1),
+      ...await _legacyCloudKeys(scopedUid),
+    ]);
+  }
+
   Future<String> exportRecoveryKit(String? uid, String passphrase) async {
     final normalizedPassphrase = passphrase.trim();
     if (normalizedPassphrase.length < 12) {
@@ -31,18 +72,16 @@ class EncryptionService {
     }
 
     final scopedUid = _scope(uid);
-    final cloudKey = await _keyBytes('cloud_$scopedUid');
+    final cloudKeys = await _cloudKeysForDecrypt(scopedUid);
     final salt = _algorithm.newNonce();
     final wrappingKey = await _recoverySecretKey(
       normalizedPassphrase,
       salt: salt,
     );
-    final nonce = _algorithm.newNonce();
-    final secretBox = await _algorithm.encrypt(
-      cloudKey,
-      secretKey: wrappingKey,
-      nonce: nonce,
-    );
+    final encryptedKeys = <Map<String, dynamic>>[];
+    for (final key in cloudKeys) {
+      encryptedKeys.add(await _encryptRecoveryKey(key, wrappingKey));
+    }
 
     return jsonEncode({
       'format': 'navi-e2ee-recovery-kit',
@@ -54,12 +93,8 @@ class EncryptionService {
         'salt': base64Encode(salt),
         'bits': _recoveryKeyBits,
       },
-      'encryption': {
-        'algorithm': recoveryAlgorithmName,
-        'nonce': base64Encode(secretBox.nonce),
-        'ciphertext': base64Encode(secretBox.cipherText),
-        'mac': base64Encode(secretBox.mac.bytes),
-      },
+      'encryption': encryptedKeys.first,
+      'keyring': encryptedKeys,
     });
   }
 
@@ -98,19 +133,37 @@ class EncryptionService {
       iterations: _intFromJson(kdf['iterations'], _recoveryIterations),
       bits: _intFromJson(kdf['bits'], _recoveryKeyBits),
     );
-    final cloudKey = await _algorithm.decrypt(
-      SecretBox(
-        base64Decode(encryption['ciphertext']?.toString() ?? ''),
-        nonce: base64Decode(encryption['nonce']?.toString() ?? ''),
-        mac: Mac(base64Decode(encryption['mac']?.toString() ?? '')),
-      ),
-      secretKey: wrappingKey,
-    );
-    if (cloudKey.length != 32) {
-      throw const FormatException('Recovery kit key has invalid length');
+    final cloudKeys = <String, List<int>>{};
+    final keyring = kit['keyring'];
+    if (keyring is List && keyring.isNotEmpty) {
+      for (final item in keyring) {
+        if (item is! Map) {
+          throw const FormatException('Recovery kit keyring is invalid');
+        }
+        final key = await _decryptRecoveryKey(item, wrappingKey);
+        if (key.length != 32) {
+          throw const FormatException('Recovery kit key has invalid length');
+        }
+        cloudKeys[base64Encode(key)] = key;
+      }
+    } else {
+      final cloudKey = await _decryptRecoveryKey(encryption, wrappingKey);
+      if (cloudKey.length != 32) {
+        throw const FormatException('Recovery kit key has invalid length');
+      }
+      cloudKeys[base64Encode(cloudKey)] = cloudKey;
     }
+    final importedKeys = cloudKeys.values.toList();
 
-    await _write('navi_e2ee_key_cloud_$scopedUid', base64Encode(cloudKey));
+    await _rememberCurrentCloudKeyAsLegacy(scopedUid, except: importedKeys);
+    await _write(
+      'navi_e2ee_key_cloud_$scopedUid',
+      base64Encode(importedKeys.first),
+    );
+    await _writeLegacyCloudKeys(scopedUid, [
+      ...importedKeys.skip(1),
+      ...await _legacyCloudKeys(scopedUid),
+    ]);
   }
 
   Future<Map<String, dynamic>> encryptJson(
@@ -147,15 +200,29 @@ class EncryptionService {
     if (encryption['algorithm'] != algorithmName) {
       throw const FormatException('Unsupported encryption algorithm');
     }
-    final secretKey = SecretKey(await _keyBytes('cloud_${_scope(uid)}'));
-    final clearText = await _algorithm.decrypt(
-      SecretBox(
-        base64Decode(encryption['ciphertext']?.toString() ?? ''),
-        nonce: base64Decode(encryption['nonce']?.toString() ?? ''),
-        mac: Mac(base64Decode(encryption['mac']?.toString() ?? '')),
-      ),
-      secretKey: secretKey,
+    final scopedUid = _scope(uid);
+    final secretBox = SecretBox(
+      base64Decode(encryption['ciphertext']?.toString() ?? ''),
+      nonce: base64Decode(encryption['nonce']?.toString() ?? ''),
+      mac: Mac(base64Decode(encryption['mac']?.toString() ?? '')),
     );
+
+    List<int>? clearText;
+    Object? lastError;
+    for (final key in await _cloudKeysForDecrypt(scopedUid)) {
+      try {
+        clearText = await _algorithm.decrypt(
+          secretBox,
+          secretKey: SecretKey(key),
+        );
+        break;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (clearText == null) {
+      throw lastError ?? const FormatException('Unable to decrypt payload');
+    }
     final decoded = jsonDecode(utf8.decode(clearText));
     if (decoded is Map) {
       return decoded.map((key, value) => MapEntry(key.toString(), value));
@@ -221,6 +288,103 @@ class EncryptionService {
     final bytes = await secretKey.extractBytes();
     await _write(storageKey, base64Encode(bytes));
     return bytes;
+  }
+
+  Future<List<List<int>>> _cloudKeysForDecrypt(String scopedUid) async {
+    final primary = await _keyBytes('cloud_$scopedUid');
+    final keys = <String, List<int>>{base64Encode(primary): primary};
+    for (final key in await _legacyCloudKeys(scopedUid)) {
+      if (key.length == 32) {
+        keys[base64Encode(key)] = key;
+      }
+    }
+    return keys.values.toList();
+  }
+
+  Future<void> _rememberCurrentCloudKeyAsLegacy(
+    String scopedUid, {
+    required List<List<int>> except,
+  }) async {
+    final storageKey = 'navi_e2ee_key_cloud_$scopedUid';
+    final existing = await _read(storageKey);
+    final exceptKeys = except.map(base64Encode).toSet();
+    if (existing == null || existing.isEmpty || exceptKeys.contains(existing)) {
+      return;
+    }
+    await _writeLegacyCloudKeys(scopedUid, [
+      base64Decode(existing),
+      ...await _legacyCloudKeys(scopedUid),
+    ]);
+  }
+
+  Future<List<List<int>>> _legacyCloudKeys(String scopedUid) async {
+    final encoded = await _read('navi_e2ee_legacy_cloud_keys_$scopedUid');
+    if (encoded == null || encoded.isEmpty) {
+      return const [];
+    }
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! List) {
+        return const [];
+      }
+      return decoded
+          .map((value) => base64Decode(value.toString()))
+          .where((key) => key.length == 32)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _writeLegacyCloudKeys(
+    String scopedUid,
+    List<List<int>> keys,
+  ) async {
+    final unique = <String>{};
+    for (final key in keys) {
+      if (key.length == 32) {
+        unique.add(base64Encode(key));
+      }
+    }
+    await _write(
+      'navi_e2ee_legacy_cloud_keys_$scopedUid',
+      jsonEncode(unique.toList()),
+    );
+  }
+
+  Future<Map<String, dynamic>> _encryptRecoveryKey(
+    List<int> cloudKey,
+    SecretKey wrappingKey,
+  ) async {
+    final nonce = _algorithm.newNonce();
+    final secretBox = await _algorithm.encrypt(
+      cloudKey,
+      secretKey: wrappingKey,
+      nonce: nonce,
+    );
+    return {
+      'algorithm': recoveryAlgorithmName,
+      'nonce': base64Encode(secretBox.nonce),
+      'ciphertext': base64Encode(secretBox.cipherText),
+      'mac': base64Encode(secretBox.mac.bytes),
+    };
+  }
+
+  Future<List<int>> _decryptRecoveryKey(
+    Map<dynamic, dynamic> encryption,
+    SecretKey wrappingKey,
+  ) {
+    if (encryption['algorithm'] != recoveryAlgorithmName) {
+      throw const FormatException('Unsupported recovery kit algorithm');
+    }
+    return _algorithm.decrypt(
+      SecretBox(
+        base64Decode(encryption['ciphertext']?.toString() ?? ''),
+        nonce: base64Decode(encryption['nonce']?.toString() ?? ''),
+        mac: Mac(base64Decode(encryption['mac']?.toString() ?? '')),
+      ),
+      secretKey: wrappingKey,
+    );
   }
 
   Future<SecretKey> _recoverySecretKey(

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'firebase_options.dart';
 import 'models/journal_entry.dart';
 import 'models/audio_entry.dart';
 import 'models/evaluation_feedback.dart';
 import 'models/keyboard_session_entry.dart';
+import 'models/navi_beacon_sample.dart';
 import 'pages/journal_page.dart';
 import 'pages/today_page.dart';
 import 'pages/audio_page.dart';
@@ -22,6 +25,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await _initializeCrashlytics();
 
   // Initialize Hive with the default directory (Documents) to preserve existing data
   await Hive.initFlutter();
@@ -30,12 +34,38 @@ Future<void> main() async {
   Hive.registerAdapter(AudioEntryAdapter());
   Hive.registerAdapter(EvaluationFeedbackAdapter());
   Hive.registerAdapter(KeyboardSessionEntryAdapter());
+  Hive.registerAdapter(NaviBeaconSampleAdapter());
 
   await SettingsService.init();
   await NotificationService.instance.init();
   await AnalyticsService.track('app_started');
 
   runApp(const NaviApp());
+}
+
+Future<void> _initializeCrashlytics() async {
+  if (!_supportsCrashlytics) {
+    return;
+  }
+
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
+    return true;
+  };
+}
+
+bool get _supportsCrashlytics {
+  if (kIsWeb) {
+    return false;
+  }
+
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.macOS => true,
+    _ => false,
+  };
 }
 
 class NaviApp extends StatelessWidget {

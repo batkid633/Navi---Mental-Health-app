@@ -36,6 +36,11 @@ GOOGLE_HEALTH_REDIRECT_URI=https://navi-backend-zcp5ib6peq-uc.a.run.app/fitbit/c
 ALLOW_CORS_FROM=<firebase-hosting-origin-or-app-domain>
 ADMIN_ACCESS_UIDS=<comma-separated-admin-uids>
 MONITORING_ACCESS_UIDS=<comma-separated-admin-uids>
+ANALYTICS_BIGQUERY_ENABLED=false
+ANALYTICS_BIGQUERY_PROJECT_ID=<gcp-project-id>
+ANALYTICS_BIGQUERY_DATASET=navi_analytics
+ANALYTICS_BIGQUERY_TABLE=product_events
+ANALYTICS_UID_HASH_SALT_SECRET=analytics-uid-hash-salt
 ```
 
 The same `WHOOP_REDIRECT_URI` must be registered in the WHOOP developer dashboard for the Navi OAuth client. `/whoop/connect` uses it when building the WHOOP authorization URL, and `/whoop/callback` uses the same value during code exchange.
@@ -69,6 +74,7 @@ Public health/runtime:
 Authenticated user endpoints:
 
 - `POST /sentiment`
+- `POST /analytics/events`
 - `POST /predict/tomorrow`
 - `POST /ml/daily-features`
 - `GET /insights/trends`
@@ -109,6 +115,8 @@ Runtime user data is ignored by git.
 ## Monitoring
 
 The backend emits structured JSON logs to stdout. Cloud Run sends these to Cloud Logging.
+When enabled, `POST /analytics/events` also writes privacy-safe product events
+to BigQuery.
 
 Useful endpoints:
 

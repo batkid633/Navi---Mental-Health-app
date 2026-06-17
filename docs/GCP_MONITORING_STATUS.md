@@ -1,6 +1,6 @@
 # GCP Monitoring Status
 
-Last updated: 2026-06-03
+Last updated: 2026-06-10
 
 Project:
 
@@ -14,14 +14,30 @@ Uptime check:
 
 ```text
 Navi backend health uptime
-projects/project-bc878e6c-6f53-4f24-88a/uptimeCheckConfigs/navi-backend-health-uptime-UDpz7i0JjsE
+projects/project-bc878e6c-6f53-4f24-88a/uptimeCheckConfigs/navi-backend-health-uptime-Z7zfdCY-t88
 ```
+
+Stale duplicate uptime checks that targeted
+`navi-backend-712966180400.us-central1.run.app` were removed on 2026-06-10.
+The active check targets `navi-backend-zcp5ib6peq-uc.a.run.app`.
 
 Log-based metrics:
 
 ```text
 product_events
 backend_5xx_completions
+```
+
+BigQuery analytics:
+
+```text
+Dataset: project-bc878e6c-6f53-4f24-88a.navi_analytics
+Table: project-bc878e6c-6f53-4f24-88a.navi_analytics.product_events
+View: project-bc878e6c-6f53-4f24-88a.navi_analytics.daily_engagement
+Partitioning: event_date
+Clustering: event_name, platform, event_source
+UID hash salt secret: analytics-uid-hash-salt
+Cloud Run writer IAM: roles/bigquery.dataEditor, roles/bigquery.jobUser
 ```
 
 Alert policies:
@@ -66,5 +82,5 @@ Secret accessor role: granted
 ## Still Needed
 
 - Add GCP Billing budget alerts.
-- Add Firebase Crashlytics before mobile beta.
+- Finish Firebase Crashlytics validation on physical Android/iOS beta builds.
 - Test the WHOOP OAuth flow from the hosted app after the Firebase Hosting redeploy.

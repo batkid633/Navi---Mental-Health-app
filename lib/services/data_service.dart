@@ -8,6 +8,7 @@ import '../models/journal_entry.dart';
 import '../models/audio_entry.dart';
 import '../models/evaluation_feedback.dart';
 import '../models/keyboard_session_entry.dart';
+import '../models/navi_beacon_sample.dart';
 import '../models/sync_status.dart';
 import '../config/backend_config.dart';
 import 'cloud_persistence_service.dart';
@@ -23,6 +24,7 @@ class DataService {
   static const _legacyAudioBoxName = 'audio';
   static const _sharedFeedbackBoxName = 'evaluation_feedback_shared';
   static const _sharedKeyboardBoxName = 'keyboard_sessions_shared';
+  static const _sharedBeaconBoxName = 'navi_beacon_samples_shared';
 
   String? _currentUserId;
   final EncryptionService _encryptionService = EncryptionService();
@@ -32,6 +34,8 @@ class DataService {
   bool _audioCloudInitialized = false;
   bool _feedbackCloudInitialized = false;
   bool _keyboardCloudInitialized = false;
+  bool _beaconInitialized = false;
+  String? _accountCloudKeyInitializedForUid;
 
   void setUserId(String userId) {
     if (_currentUserId != userId) {
@@ -40,6 +44,8 @@ class DataService {
       _audioCloudInitialized = false;
       _feedbackCloudInitialized = false;
       _keyboardCloudInitialized = false;
+      _beaconInitialized = false;
+      _accountCloudKeyInitializedForUid = null;
     }
   }
 
@@ -49,6 +55,8 @@ class DataService {
     _audioCloudInitialized = false;
     _feedbackCloudInitialized = false;
     _keyboardCloudInitialized = false;
+    _beaconInitialized = false;
+    _accountCloudKeyInitializedForUid = null;
   }
 
   // Journal entries - local with user scoping.
@@ -85,16 +93,67 @@ class DataService {
     return journalBox;
   }
 
+  Future<void> refreshJournalEntriesFromCloud(
+    Box<JournalEntry> journalBox,
+  ) async {
+    await _removeHistoricalTrainingEntries(journalBox);
+    await _loadJournalEntriesFromCloud(journalBox);
+    await _retryQueuedJournalSync(journalBox);
+  }
+
+  Future<CloudJournalInventory?> cloudJournalInventory({
+    bool forceCloudRead = false,
+  }) async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) {
+      return null;
+    }
+    if (!forceCloudRead && !SettingsService.cloudSyncEnabled) {
+      return null;
+    }
+    await _ensureAccountCloudKey();
+    return _cloudPersistence.journalInventory(uid);
+  }
+
+  Future<void> _ensureAccountCloudKey() async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+    if (_accountCloudKeyInitializedForUid == uid) {
+      return;
+    }
+    final localKeys = await _encryptionService.exportCloudKeyringForUser(uid);
+    final accountKeys = await _cloudPersistence.ensureAccountCloudKeyring(
+      uid,
+      localKeys,
+    );
+    await _encryptionService.importCloudKeyringForUser(uid, accountKeys);
+    _accountCloudKeyInitializedForUid = uid;
+  }
+
+  Future<void> _publishCurrentCloudKeyring() async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+    final localKeys = await _encryptionService.exportCloudKeyringForUser(uid);
+    final accountKeys = await _cloudPersistence.publishAccountCloudKeyring(
+      uid,
+      localKeys,
+    );
+    await _encryptionService.importCloudKeyringForUser(uid, accountKeys);
+    _accountCloudKeyInitializedForUid = uid;
+  }
+
   Future<void> _initializeJournalDataInBackground(
     Box<JournalEntry> journalBox,
   ) async {
     try {
+      await _removeHistoricalTrainingEntries(journalBox);
       await _loadJournalEntriesFromCloud(
         journalBox,
       ).timeout(const Duration(seconds: 10));
-      await _importHistoricalTrainingData(
-        journalBox,
-      ).timeout(const Duration(seconds: 8));
       await _scoreMissingSentiment(journalBox);
       await _retryQueuedJournalSync(
         journalBox,
@@ -146,53 +205,6 @@ class DataService {
       }
     } catch (e) {
       debugPrint('[DataService] Error migrating from "$legacyBoxName": $e');
-    }
-  }
-
-  Future<void> _importHistoricalTrainingData(
-    Box<JournalEntry> journalBox,
-  ) async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse('${BackendConfig.baseUrl}/journal/history'),
-            headers: await BackendConfig.getAuthHeaders(),
-          )
-          .timeout(const Duration(seconds: 8));
-      if (response.statusCode != 200) {
-        return;
-      }
-
-      final body = jsonDecode(response.body);
-      final data = body is Map ? body['data'] : null;
-      if (data is! List) {
-        return;
-      }
-
-      var importedCount = 0;
-      for (final item in data) {
-        if (item is! Map) continue;
-        final map = <String, dynamic>{};
-        item.forEach((key, value) {
-          if (key != null) {
-            map[key.toString()] = value;
-          }
-        });
-        final entry = JournalEntry.fromJson(map);
-        if (!journalBox.containsKey(entry.id)) {
-          entry.syncStatus = SyncStatus.pending;
-          await journalBox.put(entry.id, entry);
-          importedCount++;
-        }
-      }
-
-      if (importedCount > 0) {
-        debugPrint(
-          '[DataService] Imported $importedCount historical training entries',
-        );
-      }
-    } catch (e) {
-      debugPrint('[DataService] Historical training import skipped: $e');
     }
   }
 
@@ -377,6 +389,55 @@ class DataService {
     return keyboardBox;
   }
 
+  Future<Box<NaviBeaconSample>> getNaviBeaconSampleBox() async {
+    final boxName = _currentUserId == null
+        ? '${_sharedBeaconBoxName}_secure'
+        : 'navi_beacon_samples_secure_$_currentUserId';
+    final beaconBox = await Hive.openBox<NaviBeaconSample>(
+      boxName,
+      encryptionCipher: HiveAesCipher(
+        await _encryptionService.hiveKeyForUser(_currentUserId),
+      ),
+    );
+
+    await _migrateNaviBeaconSamples(beaconBox);
+    _beaconInitialized = true;
+    return beaconBox;
+  }
+
+  Future<void> _migrateNaviBeaconSamples(
+    Box<NaviBeaconSample> beaconBox,
+  ) async {
+    if (_beaconInitialized) {
+      return;
+    }
+    await _migrateFromLegacyBeaconBox(beaconBox, _sharedBeaconBoxName);
+    if (_currentUserId != null) {
+      await _migrateFromLegacyBeaconBox(
+        beaconBox,
+        'navi_beacon_samples_$_currentUserId',
+      );
+    }
+  }
+
+  Future<void> _migrateFromLegacyBeaconBox(
+    Box<NaviBeaconSample> beaconBox,
+    String legacyBoxName,
+  ) async {
+    try {
+      final legacyBox = await Hive.openBox<dynamic>(legacyBoxName);
+      for (final key in legacyBox.keys) {
+        final dynamic legacyValue = legacyBox.get(key);
+        final entry = _convertToNaviBeaconSample(legacyValue);
+        if (entry != null) {
+          await beaconBox.put(entry.id, entry);
+        }
+      }
+    } catch (_) {
+      // No legacy beacon data available; ignore.
+    }
+  }
+
   Future<void> _migrateKeyboardSessionData(
     Box<KeyboardSessionEntry> keyboardBox,
   ) async {
@@ -551,6 +612,42 @@ class DataService {
     return null;
   }
 
+  NaviBeaconSample? _convertToNaviBeaconSample(dynamic value) {
+    if (value is NaviBeaconSample) {
+      return value;
+    }
+    if (value is Map) {
+      try {
+        final map = <String, dynamic>{};
+        value.forEach((key, val) {
+          if (key != null) {
+            map[key.toString()] = val;
+          }
+        });
+        return NaviBeaconSample.fromJson(map);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (value is String) {
+      try {
+        final decoded = value.isNotEmpty ? jsonDecode(value) : null;
+        if (decoded is Map) {
+          final map = <String, dynamic>{};
+          decoded.forEach((key, val) {
+            if (key != null) {
+              map[key.toString()] = val;
+            }
+          });
+          return NaviBeaconSample.fromJson(map);
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   Future<void> syncJournalEntryToCloud(JournalEntry entry) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
@@ -561,6 +658,7 @@ class DataService {
     }
     _markPending(entry);
     try {
+      await _ensureAccountCloudKey();
       final canonicalId = await _cloudPersistence.saveJournalEntry(uid, entry);
       entry.id = canonicalId;
       _markSynced(entry);
@@ -577,6 +675,7 @@ class DataService {
   ) async {
     Box<AudioEntry>? audioBox;
     Box<KeyboardSessionEntry>? keyboardBox;
+    Box<NaviBeaconSample>? beaconBox;
     try {
       audioBox = await getAudioBox();
     } catch (_) {
@@ -587,10 +686,16 @@ class DataService {
     } catch (_) {
       keyboardBox = null;
     }
+    try {
+      beaconBox = await getNaviBeaconSampleBox();
+    } catch (_) {
+      beaconBox = null;
+    }
     await _syncDailyFeaturesToBackend(
       journalBox,
       audioBox: audioBox,
       keyboardBox: keyboardBox,
+      beaconBox: beaconBox,
     );
   }
 
@@ -604,6 +709,7 @@ class DataService {
     }
     _markPending(entry);
     try {
+      await _ensureAccountCloudKey();
       final canonicalId = await _cloudPersistence.saveAudioEntry(uid, entry);
       entry.id = canonicalId;
       _markSynced(entry);
@@ -627,6 +733,14 @@ class DataService {
     await _syncDailyFeaturesToBackend(journalBox, keyboardBox: keyboardBox);
   }
 
+  Future<void> saveNaviBeaconSample(NaviBeaconSample sample) async {
+    final beaconBox = await getNaviBeaconSampleBox();
+    _markPending(sample);
+    await beaconBox.put(sample.id, sample);
+    final journalBox = await getJournalBox();
+    await _syncDailyFeaturesToBackend(journalBox, beaconBox: beaconBox);
+  }
+
   Future<void> syncKeyboardSessionToCloud(KeyboardSessionEntry entry) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
@@ -637,6 +751,7 @@ class DataService {
     }
     _markPending(entry);
     try {
+      await _ensureAccountCloudKey();
       final canonicalId = await _cloudPersistence.saveKeyboardSession(
         uid,
         entry,
@@ -671,6 +786,7 @@ class DataService {
     }
     _markPending(feedback);
     try {
+      await _ensureAccountCloudKey();
       final canonicalId = await _cloudPersistence.saveEvaluationFeedback(
         uid,
         feedback,
@@ -685,15 +801,36 @@ class DataService {
     }
   }
 
-  Future<void> loadFromCloud() async {
+  Future<CloudLoadResult> loadFromCloud({bool forceCloudRead = false}) async {
     final journalBox = await getJournalBox();
     final audioBox = await getAudioBox();
     final feedbackBox = await getEvaluationFeedbackBox();
     final keyboardBox = await getKeyboardSessionBox();
-    await _loadJournalEntriesFromCloud(journalBox);
-    await _loadAudioEntriesFromCloud(audioBox);
-    await _loadEvaluationFeedbackFromCloud(feedbackBox);
-    await _loadKeyboardSessionsFromCloud(keyboardBox);
+    final beforeJournalCount = journalBox.length;
+    final journalLoaded = await _loadJournalEntriesFromCloud(
+      journalBox,
+      forceCloudRead: forceCloudRead,
+    );
+    final audioLoaded = await _loadAudioEntriesFromCloud(
+      audioBox,
+      forceCloudRead: forceCloudRead,
+    );
+    final feedbackLoaded = await _loadEvaluationFeedbackFromCloud(
+      feedbackBox,
+      forceCloudRead: forceCloudRead,
+    );
+    final keyboardLoaded = await _loadKeyboardSessionsFromCloud(
+      keyboardBox,
+      forceCloudRead: forceCloudRead,
+    );
+    return CloudLoadResult(
+      beforeJournalCount: beforeJournalCount,
+      afterJournalCount: journalBox.length,
+      journalLoaded: journalLoaded,
+      audioLoaded: audioLoaded,
+      feedbackLoaded: feedbackLoaded,
+      keyboardLoaded: keyboardLoaded,
+    );
   }
 
   Future<void> syncPrivacyConsentToCloud() async {
@@ -702,6 +839,7 @@ class DataService {
       return;
     }
     try {
+      await _ensureAccountCloudKey();
       await _cloudPersistence.savePrivacyConsent(
         uid,
         SettingsService.privacyConsentSnapshot(),
@@ -717,12 +855,14 @@ class DataService {
     final audioBox = await getAudioBox();
     final feedbackBox = await getEvaluationFeedbackBox();
     final keyboardBox = await getKeyboardSessionBox();
+    final beaconBox = await getNaviBeaconSampleBox();
     final uid = _currentUserId;
     Map<String, dynamic>? cloudData;
     Map<String, dynamic>? backendData;
 
     if (uid != null && uid.isNotEmpty && SettingsService.cloudSyncEnabled) {
       try {
+        await _ensureAccountCloudKey();
         cloudData = await _cloudPersistence.exportUserData(uid);
       } catch (e) {
         cloudData = {'error': e.toString()};
@@ -759,6 +899,9 @@ class DataService {
         'keyboardSessions': keyboardBox.values
             .map((session) => session.toJson())
             .toList(),
+        'naviBeaconSamples': beaconBox.values
+            .map((sample) => sample.toJson())
+            .toList(),
       },
       'cloud': cloudData,
       'backend': backendData,
@@ -770,25 +913,28 @@ class DataService {
     return encoder.convert(await exportMyData());
   }
 
-  Future<String> exportEncryptionRecoveryKit(String passphrase) {
+  Future<String> exportEncryptionRecoveryKit(String passphrase) async {
+    await _ensureAccountCloudKey();
     return _encryptionService.exportRecoveryKit(_currentUserId, passphrase);
   }
 
   Future<void> importEncryptionRecoveryKit(
     String passphrase,
     String recoveryKit,
-  ) {
-    return _encryptionService.importRecoveryKit(
+  ) async {
+    await _encryptionService.importRecoveryKit(
       _currentUserId,
       passphrase,
       recoveryKit,
     );
+    await _publishCurrentCloudKeyring();
   }
 
   Future<void> deleteMyData() async {
     final uid = _currentUserId;
     if (uid != null && uid.isNotEmpty) {
       try {
+        await _ensureAccountCloudKey();
         await _cloudPersistence.deleteUserData(uid);
       } catch (e) {
         debugPrint('[DataService] Cloud account data delete failed: $e');
@@ -807,15 +953,18 @@ class DataService {
     final audioBox = await getAudioBox();
     final feedbackBox = await getEvaluationFeedbackBox();
     final keyboardBox = await getKeyboardSessionBox();
+    final beaconBox = await getNaviBeaconSampleBox();
     await journalBox.clear();
     await audioBox.clear();
     await feedbackBox.clear();
     await keyboardBox.clear();
+    await beaconBox.clear();
     await SettingsService.resetPrivacyControls();
     _journalCloudInitialized = false;
     _audioCloudInitialized = false;
     _feedbackCloudInitialized = false;
     _keyboardCloudInitialized = false;
+    _beaconInitialized = false;
   }
 
   Future<void> deleteJournalEntry(JournalEntry entry) async {
@@ -827,6 +976,7 @@ class DataService {
       return;
     }
     try {
+      await _ensureAccountCloudKey();
       await _cloudPersistence.deleteJournalEntry(uid, entry.id);
     } catch (e) {
       debugPrint('[DataService] Journal cloud delete failed: $e');
@@ -842,6 +992,7 @@ class DataService {
       return;
     }
     try {
+      await _ensureAccountCloudKey();
       await _cloudPersistence.deleteAudioEntry(uid, entry.id);
     } catch (e) {
       debugPrint('[DataService] Audio cloud delete failed: $e');
@@ -857,6 +1008,7 @@ class DataService {
       return;
     }
     try {
+      await _ensureAccountCloudKey();
       await _cloudPersistence.deleteKeyboardSession(uid, entry.id);
     } catch (e) {
       debugPrint('[DataService] Keyboard session cloud delete failed: $e');
@@ -872,25 +1024,36 @@ class DataService {
       return;
     }
     try {
+      await _ensureAccountCloudKey();
       await _cloudPersistence.deleteEvaluationFeedback(uid, feedback.id);
     } catch (e) {
       debugPrint('[DataService] Evaluation feedback cloud delete failed: $e');
     }
   }
 
-  Future<void> _loadJournalEntriesFromCloud(
-    Box<JournalEntry> journalBox,
-  ) async {
+  Future<int> _loadJournalEntriesFromCloud(
+    Box<JournalEntry> journalBox, {
+    bool forceCloudRead = false,
+  }) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
-      return;
+      return 0;
     }
-    if (!SettingsService.cloudSyncEnabled) {
-      return;
+    if (!forceCloudRead && !SettingsService.cloudSyncEnabled) {
+      return 0;
     }
     try {
+      await _ensureAccountCloudKey();
       final cloudEntries = await _cloudPersistence.loadJournalEntries(uid);
-      final dedupedEntries = _dedupeJournalEntries(cloudEntries);
+      final userEntries = <JournalEntry>[];
+      for (final entry in cloudEntries) {
+        if (_isHistoricalTrainingEntry(entry)) {
+          unawaited(_cloudPersistence.deleteJournalEntry(uid, entry.id));
+          continue;
+        }
+        userEntries.add(entry);
+      }
+      final dedupedEntries = _dedupeJournalEntries(userEntries);
       for (final entry in dedupedEntries) {
         _markSynced(entry);
         await journalBox.put(entry.id, entry);
@@ -900,20 +1063,45 @@ class DataService {
           '[DataService] Loaded ${dedupedEntries.length} journal entries from cloud',
         );
       }
+      return dedupedEntries.length;
     } catch (e) {
       debugPrint('[DataService] Journal cloud load skipped: $e');
+      return 0;
     }
   }
 
-  Future<void> _loadAudioEntriesFromCloud(Box<AudioEntry> audioBox) async {
+  Future<void> _removeHistoricalTrainingEntries(
+    Box<JournalEntry> journalBox,
+  ) async {
+    final keysToDelete = <dynamic>[];
+    for (final key in journalBox.keys) {
+      final entry = journalBox.get(key);
+      if (entry != null && _isHistoricalTrainingEntry(entry)) {
+        keysToDelete.add(key);
+      }
+    }
+    if (keysToDelete.isEmpty) {
+      return;
+    }
+    await journalBox.deleteAll(keysToDelete);
+    debugPrint(
+      '[DataService] Removed ${keysToDelete.length} historical training journal rows',
+    );
+  }
+
+  Future<int> _loadAudioEntriesFromCloud(
+    Box<AudioEntry> audioBox, {
+    bool forceCloudRead = false,
+  }) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
-      return;
+      return 0;
     }
-    if (!SettingsService.cloudSyncEnabled) {
-      return;
+    if (!forceCloudRead && !SettingsService.cloudSyncEnabled) {
+      return 0;
     }
     try {
+      await _ensureAccountCloudKey();
       final cloudEntries = await _cloudPersistence.loadAudioEntries(uid);
       final dedupedEntries = _dedupeAudioEntries(cloudEntries);
       for (final entry in dedupedEntries) {
@@ -925,22 +1113,26 @@ class DataService {
           '[DataService] Loaded ${dedupedEntries.length} audio entries from cloud',
         );
       }
+      return dedupedEntries.length;
     } catch (e) {
       debugPrint('[DataService] Audio cloud load skipped: $e');
+      return 0;
     }
   }
 
-  Future<void> _loadEvaluationFeedbackFromCloud(
-    Box<EvaluationFeedback> feedbackBox,
-  ) async {
+  Future<int> _loadEvaluationFeedbackFromCloud(
+    Box<EvaluationFeedback> feedbackBox, {
+    bool forceCloudRead = false,
+  }) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
-      return;
+      return 0;
     }
-    if (!SettingsService.cloudSyncEnabled) {
-      return;
+    if (!forceCloudRead && !SettingsService.cloudSyncEnabled) {
+      return 0;
     }
     try {
+      await _ensureAccountCloudKey();
       final cloudFeedback = await _cloudPersistence.loadEvaluationFeedback(uid);
       for (final feedback in cloudFeedback) {
         _markSynced(feedback);
@@ -951,22 +1143,26 @@ class DataService {
           '[DataService] Loaded ${cloudFeedback.length} evaluation feedback records from cloud',
         );
       }
+      return cloudFeedback.length;
     } catch (e) {
       debugPrint('[DataService] Evaluation feedback cloud load skipped: $e');
+      return 0;
     }
   }
 
-  Future<void> _loadKeyboardSessionsFromCloud(
-    Box<KeyboardSessionEntry> keyboardBox,
-  ) async {
+  Future<int> _loadKeyboardSessionsFromCloud(
+    Box<KeyboardSessionEntry> keyboardBox, {
+    bool forceCloudRead = false,
+  }) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
-      return;
+      return 0;
     }
-    if (!SettingsService.cloudSyncEnabled) {
-      return;
+    if (!forceCloudRead && !SettingsService.cloudSyncEnabled) {
+      return 0;
     }
     try {
+      await _ensureAccountCloudKey();
       final cloudEntries = await _cloudPersistence.loadKeyboardSessions(uid);
       final dedupedEntries = _dedupeKeyboardSessions(cloudEntries);
       for (final entry in dedupedEntries) {
@@ -978,8 +1174,10 @@ class DataService {
           '[DataService] Loaded ${dedupedEntries.length} keyboard sessions from cloud',
         );
       }
+      return dedupedEntries.length;
     } catch (e) {
       debugPrint('[DataService] Keyboard session cloud load skipped: $e');
+      return 0;
     }
   }
 
@@ -1020,6 +1218,7 @@ class DataService {
     Box<JournalEntry> journalBox, {
     Box<AudioEntry>? audioBox,
     Box<KeyboardSessionEntry>? keyboardBox,
+    Box<NaviBeaconSample>? beaconBox,
   }) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
@@ -1033,6 +1232,7 @@ class DataService {
       journalBox,
       audioEntries: audioBox?.values ?? const [],
       keyboardSessions: keyboardBox?.values ?? const [],
+      beaconSamples: beaconBox?.values ?? const [],
     );
     if (records.isEmpty) {
       return;
@@ -1168,6 +1368,11 @@ class DataService {
     return byKey.values.toList();
   }
 
+  bool _isHistoricalTrainingEntry(JournalEntry entry) {
+    return entry.id.startsWith('historical-') ||
+        entry.text.startsWith('Historical mood sample imported');
+  }
+
   List<AudioEntry> _dedupeAudioEntries(List<AudioEntry> entries) {
     final byKey = <String, AudioEntry>{};
     for (final entry in entries) {
@@ -1231,4 +1436,24 @@ class DataService {
       await entry.save();
     }
   }
+}
+
+class CloudLoadResult {
+  final int beforeJournalCount;
+  final int afterJournalCount;
+  final int journalLoaded;
+  final int audioLoaded;
+  final int feedbackLoaded;
+  final int keyboardLoaded;
+
+  const CloudLoadResult({
+    required this.beforeJournalCount,
+    required this.afterJournalCount,
+    required this.journalLoaded,
+    required this.audioLoaded,
+    required this.feedbackLoaded,
+    required this.keyboardLoaded,
+  });
+
+  int get journalAdded => afterJournalCount - beforeJournalCount;
 }

@@ -69,6 +69,22 @@ class RuntimeSettings:
         or os.getenv("GOOGLE_CLOUD_PROJECT")
         or os.getenv("GCP_PROJECT")
     )
+    analytics_bigquery_enabled: bool = env_bool("ANALYTICS_BIGQUERY_ENABLED", False)
+    analytics_bigquery_project_id: str | None = normalize_env(
+        os.getenv("ANALYTICS_BIGQUERY_PROJECT_ID")
+        or os.getenv("GOOGLE_CLOUD_PROJECT")
+        or os.getenv("GCP_PROJECT")
+        or os.getenv("SECRET_MANAGER_PROJECT_ID")
+    )
+    analytics_bigquery_dataset: str = (
+        normalize_env(os.getenv("ANALYTICS_BIGQUERY_DATASET")) or "navi_analytics"
+    )
+    analytics_bigquery_table: str = (
+        normalize_env(os.getenv("ANALYTICS_BIGQUERY_TABLE")) or "product_events"
+    )
+    analytics_bigquery_location: str = (
+        normalize_env(os.getenv("ANALYTICS_BIGQUERY_LOCATION")) or "US"
+    )
 
 
 SETTINGS = RuntimeSettings()
@@ -199,6 +215,15 @@ def config_check() -> dict[str, Any]:
             or normalize_env(os.getenv("Fitbit_Redirect_URI"))
         ),
         "secrets": {},
+        "analytics": {
+            "bigquery_enabled": SETTINGS.analytics_bigquery_enabled,
+            "bigquery_project_configured": bool(SETTINGS.analytics_bigquery_project_id),
+            "bigquery_dataset": SETTINGS.analytics_bigquery_dataset,
+            "bigquery_table": SETTINGS.analytics_bigquery_table,
+            "uid_hash_salt_secret_configured": bool(
+                normalize_env(os.getenv("ANALYTICS_UID_HASH_SALT_SECRET"))
+            ),
+        },
         "warnings": [],
         "ok": True,
     }
@@ -237,6 +262,14 @@ def config_check() -> dict[str, Any]:
         if direct_envs:
             checks["warnings"].append(
                 f"Direct secret environment variables are set in production: {', '.join(sorted(direct_envs))}"
+            )
+        if SETTINGS.analytics_bigquery_enabled and not SETTINGS.analytics_bigquery_project_id:
+            checks["warnings"].append("ANALYTICS_BIGQUERY_PROJECT_ID is not configured")
+        if SETTINGS.analytics_bigquery_enabled and not normalize_env(
+            os.getenv("ANALYTICS_UID_HASH_SALT_SECRET")
+        ):
+            checks["warnings"].append(
+                "ANALYTICS_UID_HASH_SALT_SECRET is recommended before production analytics export"
             )
         if not checks["whoop_redirect_uri_configured"]:
             checks["warnings"].append("WHOOP_REDIRECT_URI is not configured")

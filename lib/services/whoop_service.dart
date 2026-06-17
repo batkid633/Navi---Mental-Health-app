@@ -117,18 +117,6 @@ class WhoopService {
     return info;
   }
 
-  static Future<void> retrainModel() async {
-    final uri = Uri.parse('${BackendConfig.baseUrl}/whoop/retrain');
-    final response = await http.post(
-      uri,
-      headers: await BackendConfig.getAuthHeaders(),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Retrain request failed: ${response.statusCode}');
-    }
-  }
-
   static Future<WhoopSyncResult> syncDailyMetrics({int days = 30}) async {
     final uri = Uri.parse('${BackendConfig.baseUrl}/whoop/sync?days=$days');
     final response = await http.post(

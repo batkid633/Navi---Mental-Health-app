@@ -13,3 +13,4 @@ nltk
 firebase-admin
 python-multipart
 google-cloud-secret-manager
+google-cloud-bigquery

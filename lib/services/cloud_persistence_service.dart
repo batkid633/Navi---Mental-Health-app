@@ -1,7 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/audio_entry.dart';
 import '../models/evaluation_feedback.dart';
@@ -59,6 +58,14 @@ class CloudPersistenceService {
         .doc('privacy_consent');
   }
 
+  DocumentReference<Map<String, dynamic>> _accountCloudKeyDocument(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('profile')
+        .doc('account_cloud_key');
+  }
+
   CollectionReference<Map<String, dynamic>> _consentRecordsCollection(
     String uid,
   ) {
@@ -87,32 +94,133 @@ class CloudPersistenceService {
         .doc('notification_preferences');
   }
 
+  Future<List<String>> ensureAccountCloudKeyring(
+    String uid,
+    List<String> proposedKeys,
+  ) async {
+    return _firestore.runTransaction((transaction) async {
+      final doc = _accountCloudKeyDocument(uid);
+      final snapshot = await transaction.get(doc);
+      final existingKeys = _cloudKeysFromData(snapshot.data());
+      if (existingKeys.isNotEmpty) {
+        return existingKeys;
+      }
+
+      final uniqueProposedKeys = _uniqueKeys(proposedKeys);
+      transaction.set(doc, {
+        'format': 'navi-account-cloud-key-v1',
+        'algorithm': EncryptionService.algorithmName,
+        'key': uniqueProposedKeys.first,
+        'keyring': uniqueProposedKeys,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return uniqueProposedKeys;
+    });
+  }
+
+  Future<List<String>> publishAccountCloudKeyring(
+    String uid,
+    List<String> recoveredKeys,
+  ) async {
+    return _firestore.runTransaction((transaction) async {
+      final doc = _accountCloudKeyDocument(uid);
+      final snapshot = await transaction.get(doc);
+      final mergedKeys = _uniqueKeys([
+        ...recoveredKeys,
+        ..._cloudKeysFromData(snapshot.data()),
+      ]);
+      transaction.set(doc, {
+        'format': 'navi-account-cloud-key-v1',
+        'algorithm': EncryptionService.algorithmName,
+        'key': mergedKeys.first,
+        'keyring': mergedKeys,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return mergedKeys;
+    });
+  }
+
+  Future<List<String>> loadAccountCloudKeyring(String uid) async {
+    final snapshot = await _accountCloudKeyDocument(uid).get();
+    return _cloudKeysFromData(snapshot.data());
+  }
+
   Future<List<JournalEntry>> loadJournalEntries(String uid) async {
     final snapshot = await _journalCollection(
       uid,
     ).orderBy('date', descending: false).get();
     final entries = <JournalEntry>[];
     for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final payload = data['encryption'] is Map
-          ? await _encryptionService.decryptJson(uid, data)
-          : data;
-      entries.add(
-        JournalEntry.fromJson({
-          'id': doc.id,
-          'date': _dateToIsoString(data['date']),
-          'text': payload['text'],
-          'sentimentLabel': payload['sentimentLabel'],
-          'sentimentScore': payload['sentimentScore'],
-          'sentimentSource': payload['sentimentSource'],
-          'sentimentFallbackReason': payload['sentimentFallbackReason'],
-          'syncStatus': SyncStatus.synced,
-          'syncAttempts': 0,
-          'lastSyncedAt': _dateToIsoString(data['updatedAt']),
-        }),
-      );
+      try {
+        final data = doc.data();
+        final payload = data['encryption'] is Map
+            ? await _encryptionService.decryptJson(uid, data)
+            : data;
+        entries.add(
+          JournalEntry.fromJson({
+            'id': doc.id,
+            'date': _dateToIsoString(data['date']),
+            'text': payload['text'],
+            'sentimentLabel': payload['sentimentLabel'],
+            'sentimentScore': payload['sentimentScore'],
+            'sentimentSource': payload['sentimentSource'],
+            'sentimentFallbackReason': payload['sentimentFallbackReason'],
+            'syncStatus': SyncStatus.synced,
+            'syncAttempts': 0,
+            'lastSyncedAt': _dateToIsoString(data['updatedAt']),
+          }),
+        );
+      } catch (error) {
+        debugPrint(
+          '[CloudPersistenceService] Skipped cloud journal ${doc.id}: $error',
+        );
+        continue;
+      }
     }
     return entries;
+  }
+
+  Future<CloudJournalInventory> journalInventory(String uid) async {
+    final snapshot = await _journalCollection(
+      uid,
+    ).orderBy('date', descending: true).get();
+    var decryptableCount = 0;
+    var encryptedCount = 0;
+    DateTime? newestDate;
+    DateTime? newestDecryptableDate;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final date = _dateTimeFromValue(data['date']);
+      if (newestDate == null || date.isAfter(newestDate)) {
+        newestDate = date;
+      }
+      if (data['encryption'] is Map) {
+        encryptedCount++;
+      }
+      try {
+        if (data['encryption'] is Map) {
+          await _encryptionService.decryptJson(uid, data);
+        }
+        decryptableCount++;
+        if (newestDecryptableDate == null ||
+            date.isAfter(newestDecryptableDate)) {
+          newestDecryptableDate = date;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return CloudJournalInventory(
+      totalCount: snapshot.docs.length,
+      encryptedCount: encryptedCount,
+      decryptableCount: decryptableCount,
+      newestDate: newestDate,
+      newestDecryptableDate: newestDecryptableDate,
+    );
   }
 
   Future<String> saveJournalEntry(String uid, JournalEntry entry) async {
@@ -428,7 +536,10 @@ class CloudPersistenceService {
           uid,
         )).map((session) => session.toJson()).toList(),
         'profile': {
-          for (final doc in profileSnapshot.docs) doc.id: _jsonSafe(doc.data()),
+          for (final doc in profileSnapshot.docs)
+            doc.id: doc.id == 'account_cloud_key'
+                ? _redactedAccountCloudKey(doc.data())
+                : _jsonSafe(doc.data()),
         },
         'notificationDevices': await _exportCollection(
           _notificationDevicesCollection(uid),
@@ -532,6 +643,64 @@ class CloudPersistenceService {
     return value?.toString() ?? DateTime.now().toIso8601String();
   }
 
+  DateTime _dateTimeFromValue(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    return DateTime.tryParse(value?.toString() ?? '') ?? DateTime.now();
+  }
+
+  List<String> _cloudKeysFromData(Map<String, dynamic>? data) {
+    if (data == null) {
+      return const [];
+    }
+    if (data['format'] != 'navi-account-cloud-key-v1' ||
+        data['algorithm'] != EncryptionService.algorithmName) {
+      return const [];
+    }
+    final keys = <String>[
+      if (data['key']?.toString().isNotEmpty == true) data['key'].toString(),
+      if (data['keyring'] is Iterable)
+        for (final key in data['keyring'] as Iterable)
+          if (key.toString().isNotEmpty) key.toString(),
+    ];
+    if (keys.isEmpty) {
+      return const [];
+    }
+    return _uniqueKeys(keys);
+  }
+
+  List<String> _uniqueKeys(Iterable<String> keys) {
+    final unique = <String>[];
+    final seen = <String>{};
+    for (final key in keys) {
+      if (key.isEmpty || seen.contains(key)) {
+        continue;
+      }
+      unique.add(key);
+      seen.add(key);
+    }
+    if (unique.isEmpty) {
+      throw const FormatException('Account cloud keyring is empty');
+    }
+    return unique;
+  }
+
+  Map<String, dynamic> _redactedAccountCloudKey(Map<String, dynamic> data) {
+    final safe = _jsonSafe(data) as Map<String, dynamic>;
+    return {
+      ...safe,
+      if (data.containsKey('key')) 'key': '[redacted]',
+      if (data.containsKey('keyring')) 'keyring': '[redacted]',
+    };
+  }
+
   dynamic _jsonSafe(dynamic value) {
     if (value is Timestamp) {
       return value.toDate().toIso8601String();
@@ -550,4 +719,22 @@ class CloudPersistenceService {
     }
     return value;
   }
+}
+
+class CloudJournalInventory {
+  final int totalCount;
+  final int encryptedCount;
+  final int decryptableCount;
+  final DateTime? newestDate;
+  final DateTime? newestDecryptableDate;
+
+  const CloudJournalInventory({
+    required this.totalCount,
+    required this.encryptedCount,
+    required this.decryptableCount,
+    required this.newestDate,
+    required this.newestDecryptableDate,
+  });
+
+  int get lockedCount => totalCount - decryptableCount;
 }

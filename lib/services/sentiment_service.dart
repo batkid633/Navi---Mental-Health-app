@@ -1,6 +1,67 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../config/backend_config.dart';
+
 class SentimentService {
   static Future<Map<String, dynamic>> analyze(String text) async {
-    return _localFallback(text, fallbackReason: 'e2ee_local_default');
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${BackendConfig.baseUrl}/sentiment'),
+            headers: await BackendConfig.getAuthHeaders(),
+            body: jsonEncode({'text': text}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final body = jsonDecode(response.body);
+        if (body is Map<String, dynamic>) {
+          final compound = _doubleFrom(body['compound'] ?? body['sentiment']);
+          final label = body['label']?.toString() ?? _labelFrom(compound);
+          return {
+            ...body,
+            'compound': compound,
+            'label': label,
+            'source': body['source']?.toString() ?? 'backend',
+          };
+        }
+      }
+
+      return _localFallback(
+        text,
+        fallbackReason: 'backend_status_${response.statusCode}',
+        backendStatusCode: response.statusCode,
+      );
+    } on TimeoutException {
+      return _localFallback(text, fallbackReason: 'backend_timeout');
+    } catch (e) {
+      return _localFallback(
+        text,
+        fallbackReason: 'backend_error:${e.runtimeType}',
+      );
+    }
+  }
+
+  static double _doubleFrom(dynamic value) {
+    if (value is num) {
+      return value.toDouble().clamp(-1.0, 1.0).toDouble();
+    }
+    return (double.tryParse(value?.toString() ?? '') ?? 0.0)
+        .clamp(-1.0, 1.0)
+        .toDouble();
+  }
+
+  static String _labelFrom(double compound) {
+    if (compound >= 0.05) {
+      return 'positive';
+    }
+    if (compound <= -0.05) {
+      return 'negative';
+    }
+    return 'neutral';
   }
 
   static Map<String, dynamic> _localFallback(

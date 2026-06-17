@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY app.py .
 COPY auth.py .
 COPY config.py .
+COPY analytics_ingestion.py .
 COPY user_data.py .
 COPY fitbit_api.py .
 COPY whoop_api.py .

@@ -63,5 +63,6 @@ backend/logs/*.jsonl
 backend/logs/*.csv
 backend/user_runtime_data/
 credentials/
+recovery_artifacts/
 /logs/*.jsonl
 /logs/*.csv

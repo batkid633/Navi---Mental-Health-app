@@ -55,6 +55,13 @@ class _JournalPageState extends State<JournalPage> {
 
     try {
       journalBox = await widget.dataService.getJournalBox();
+      try {
+        await widget.dataService
+            .refreshJournalEntriesFromCloud(journalBox!)
+            .timeout(const Duration(seconds: 12));
+      } catch (e) {
+        debugPrint('Journal foreground cloud refresh skipped: $e');
+      }
       await AnalyticsService.track(
         'journal_loaded',
         properties: {'entry_count': journalBox?.length ?? 0},

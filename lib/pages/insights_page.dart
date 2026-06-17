@@ -1,19 +1,12 @@
 import 'package:flutter/material.dart';
-import '../widgets/mood_trend_chart.dart';
-import '../widgets/body_metrics_chart.dart';
-import '../widgets/volatility_trend_graph.dart';
-import '../widgets/trend_slope_graph.dart';
-import '../widgets/metrics_dropdown.dart';
+
 import '../models/insight_trend.dart';
-import '../models/model_validation_report.dart';
-import '../models/tomorrow_outlook.dart';
 import '../services/analytics_service.dart';
-import '../services/insight_api.dart';
-import '../services/ml_prediction_service.dart';
-import '../services/whoop_service.dart';
 import '../services/data_service.dart';
+import '../services/insight_api.dart';
 import '../services/insights_service.dart';
 import '../services/settings_service.dart';
+import '../widgets/mood_trend_chart.dart';
 
 class InsightsPage extends StatefulWidget {
   final DataService dataService;
@@ -28,17 +21,17 @@ class _InsightsPageState extends State<InsightsPage> {
   static const List<int> _windows = [1, 3, 7, 14];
 
   late Future<List<InsightTrend>> _trendsFuture;
-  late Future<ModelValidationReport?> _validationReportFuture;
-  late Future<TomorrowOutlook?> _trajectoryFuture;
   int _selectedWindow = 14;
-  bool _isSyncingWhoop = false;
-  String? _whoopSyncMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _trendsFuture = _loadTrends(14);
+  }
 
   void _reloadTrends() {
     setState(() {
       _trendsFuture = _loadTrends(14);
-      _validationReportFuture = _loadValidationReport();
-      _trajectoryFuture = _loadTrajectoryOutlook();
     });
   }
 
@@ -46,18 +39,13 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget build(BuildContext context) {
     if (!SettingsService.personalizedInsightsEnabled) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Insights")),
+        appBar: AppBar(title: const Text('Insights')),
         body: const SafeArea(
           child: Padding(
             padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Personalized insights are off. You can turn them back on in Settings.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            child: Text(
+              'Personalized insights are off. You can turn them back on in Settings.',
+              textAlign: TextAlign.center,
             ),
           ),
         ),
@@ -65,7 +53,7 @@ class _InsightsPageState extends State<InsightsPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Insights")),
+      appBar: AppBar(title: const Text('Insights')),
       body: FutureBuilder<List<InsightTrend>>(
         future: _trendsFuture,
         builder: (context, snapshot) {
@@ -74,77 +62,26 @@ class _InsightsPageState extends State<InsightsPage> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 32),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Error loading insights: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _reloadTrends,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Try again'),
-                    ),
-                  ],
-                ),
-              ),
+            return _InsightsError(
+              message: 'Error loading insights: ${snapshot.error}',
+              onRetry: _reloadTrends,
             );
           }
 
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.query_stats, size: 36),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No insight data yet.',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Add journal entries over time to unlock trend charts.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _reloadTrends,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Refresh'),
-                    ),
-                  ],
-                ),
-              ),
-            );
+          final trends = snapshot.data ?? [];
+          if (trends.isEmpty) {
+            return _InsightsEmpty(onRefresh: _reloadTrends);
           }
 
-          final trends = snapshot.data!;
-          final latest = trends.last;
           final summaries = _buildWindowSummaries(trends);
-          final requestedSummary = summaries.firstWhere(
-            (summary) => summary.days == _selectedWindow,
-            orElse: () => summaries.lastWhere((summary) => summary.unlocked),
-          );
-          final selectedSummary = requestedSummary.unlocked
-              ? requestedSummary
-              : summaries.lastWhere((summary) => summary.unlocked);
+          final selectedSummary = _selectedSummary(summaries);
           final visibleTrends = _windowedTrends(trends, selectedSummary.days);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               _InsightOverviewCard(
-                latest: latest,
+                latest: trends.last,
                 summaries: summaries,
                 totalDays: trends.length,
               ),
@@ -159,11 +96,8 @@ class _InsightsPageState extends State<InsightsPage> {
                 },
               ),
               _UnlockProgressCard(totalDays: trends.length),
+              _SelectedWindowCard(summary: selectedSummary),
               MoodTrendGraph(trends: visibleTrends),
-              VolatilityTrendGraph(trends: visibleTrends),
-              TrendSlopeGraph(trends: visibleTrends),
-              if (_hasBodySignals(visibleTrends))
-                BodyMetricsGraph(trends: visibleTrends),
               _WindowSummaryTable(
                 summaries: summaries,
                 selectedWindow: selectedSummary.days,
@@ -173,44 +107,11 @@ class _InsightsPageState extends State<InsightsPage> {
                   });
                 },
               ),
-              MetricsDropdown(latest: latest),
-              _WhoopSyncCard(
-                isSyncing: _isSyncingWhoop,
-                message: _whoopSyncMessage,
-                onSync: _syncWhoopMetrics,
-              ),
-              FutureBuilder<TomorrowOutlook?>(
-                future: _trajectoryFuture,
-                builder: (context, trajectorySnapshot) {
-                  final outlook = trajectorySnapshot.data;
-                  if (outlook == null || outlook.trajectory.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return _PredictionTrajectoryCard(outlook: outlook);
-                },
-              ),
-              FutureBuilder<ModelValidationReport?>(
-                future: _validationReportFuture,
-                builder: (context, validationSnapshot) {
-                  if (!validationSnapshot.hasData) {
-                    return const _ValidationReportLoadingCard();
-                  }
-                  return ModelValidationCard(report: validationSnapshot.data!);
-                },
-              ),
             ],
           );
         },
       ),
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _trendsFuture = _loadTrends(14);
-    _validationReportFuture = _loadValidationReport();
-    _trajectoryFuture = _loadTrajectoryOutlook();
   }
 
   Future<List<InsightTrend>> _loadTrends(int days) async {
@@ -271,82 +172,15 @@ class _InsightsPageState extends State<InsightsPage> {
     }).toList();
   }
 
-  Future<ModelValidationReport?> _loadValidationReport() async {
-    try {
-      final report = await InsightsApi.fetchValidationReport();
-      await AnalyticsService.track(
-        'model_validation_report_loaded',
-        properties: {
-          'row_count': report.rowCount,
-          'study_ready': report.readiness.studyReady,
-        },
-      );
-      return report;
-    } catch (_) {
-      await AnalyticsService.track('model_validation_report_failed');
-      return null;
-    }
-  }
-
-  Future<TomorrowOutlook?> _loadTrajectoryOutlook() async {
-    final outlook = await MLPredictionService.loadTrajectoryOutlook(
-      date: DateTime.now().toIso8601String(),
+  _WindowSummary _selectedSummary(List<_WindowSummary> summaries) {
+    final requested = summaries.firstWhere(
+      (summary) => summary.days == _selectedWindow,
+      orElse: () => summaries.lastWhere((summary) => summary.unlocked),
     );
-    if (outlook != null) {
-      await AnalyticsService.track(
-        'insights_trajectory_loaded',
-        properties: {
-          'point_count': outlook.trajectory.length,
-          'confidence': outlook.confidence,
-        },
-      );
+    if (requested.unlocked) {
+      return requested;
     }
-    return outlook;
-  }
-
-  Future<void> _syncWhoopMetrics() async {
-    setState(() {
-      _isSyncingWhoop = true;
-      _whoopSyncMessage = null;
-    });
-    try {
-      final result = await WhoopService.syncDailyMetrics(days: 30);
-      await AnalyticsService.track(
-        'whoop_daily_metrics_sync_requested',
-        properties: {
-          'fetched': result.fetched,
-          'saved': result.saved,
-          'durable_saved': result.durableSaved,
-        },
-      );
-      setState(() {
-        _whoopSyncMessage =
-            result.detail ??
-            'Synced ${result.saved} biometric day${result.saved == 1 ? '' : 's'}.';
-        _trendsFuture = _loadTrends(14);
-        _validationReportFuture = _loadValidationReport();
-        _trajectoryFuture = _loadTrajectoryOutlook();
-      });
-    } catch (error) {
-      await AnalyticsService.track('whoop_daily_metrics_sync_failed');
-      setState(() {
-        _whoopSyncMessage = 'WHOOP sync failed: $error';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSyncingWhoop = false;
-        });
-      }
-    }
-  }
-
-  String _stateForMood(double mood, double slope) {
-    if (mood >= 0.25 && slope >= -0.03) return 'Stable Positive';
-    if (mood <= -0.25 && slope <= 0.03) return 'Low';
-    if (slope > 0.05) return 'Improving';
-    if (slope < -0.05) return 'Declining';
-    return 'Stable';
+    return summaries.lastWhere((summary) => summary.unlocked);
   }
 
   List<InsightTrend> _windowedTrends(List<InsightTrend> trends, int days) {
@@ -384,11 +218,6 @@ class _InsightsPageState extends State<InsightsPage> {
       final bodyDays = window
           .where((trend) => trend.hrv != null || trend.sleepVar != null)
           .length;
-      final signalStrength = _signalStrength(
-        days: days,
-        bodyDays: bodyDays,
-        avgVolatility: avgVolatility,
-      );
 
       return _WindowSummary(
         days: days,
@@ -399,15 +228,22 @@ class _InsightsPageState extends State<InsightsPage> {
         delta: delta,
         volatility: avgVolatility,
         dataUsed: bodyDays > 0 ? 'Journal + body' : 'Journal',
-        signalStrength: signalStrength,
-        state: latest.state,
+        signalStrength: _signalStrength(
+          days: days,
+          bodyDays: bodyDays,
+          avgVolatility: avgVolatility,
+        ),
         daysNeeded: 0,
       );
     }).toList();
   }
 
-  bool _hasBodySignals(List<InsightTrend> trends) {
-    return trends.any((trend) => trend.hrv != null || trend.sleepVar != null);
+  String _stateForMood(double mood, double slope) {
+    if (mood >= 0.25 && slope >= -0.03) return 'Stable Positive';
+    if (mood <= -0.25 && slope <= 0.03) return 'Low';
+    if (slope > 0.05) return 'Improving';
+    if (slope < -0.05) return 'Declining';
+    return 'Stable';
   }
 
   String _moodLabel(double mood) {
@@ -451,7 +287,6 @@ class _WindowSummary {
   final double? volatility;
   final String dataUsed;
   final String signalStrength;
-  final String state;
   final int daysNeeded;
 
   const _WindowSummary({
@@ -462,7 +297,6 @@ class _WindowSummary {
     required this.volatility,
     required this.dataUsed,
     required this.signalStrength,
-    required this.state,
     required this.daysNeeded,
   });
 
@@ -475,12 +309,11 @@ class _WindowSummary {
       volatility: null,
       dataUsed: 'More logs needed',
       signalStrength: 'Pending',
-      state: 'Unknown',
       daysNeeded: daysNeeded,
     );
   }
 
-  String get label => '${days}d';
+  String get label => '${days}D';
 }
 
 class _InsightOverviewCard extends StatelessWidget {
@@ -688,6 +521,59 @@ class _UnlockProgressCard extends StatelessWidget {
   }
 }
 
+class _SelectedWindowCard extends StatelessWidget {
+  final _WindowSummary summary;
+
+  const _SelectedWindowCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(child: Text(summary.label)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${summary.label} focus',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    summary.unlocked
+                        ? '${summary.direction} | ${summary.dataUsed} | ${summary.signalStrength} signal'
+                        : '${summary.daysNeeded} more logged day${summary.daysNeeded == 1 ? '' : 's'} needed',
+                  ),
+                ],
+              ),
+            ),
+            if (summary.unlocked)
+              Text(
+                _formatDelta(summary.delta),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDelta(double? value) {
+    if (value == null) return 'Today';
+    final prefix = value > 0 ? '+' : '';
+    return '$prefix${value.toStringAsFixed(2)}';
+  }
+}
+
 class _WindowSummaryTable extends StatelessWidget {
   final List<_WindowSummary> summaries;
   final int selectedWindow;
@@ -795,58 +681,36 @@ class _WindowSummaryRow extends StatelessWidget {
   }
 }
 
-class _WhoopSyncCard extends StatelessWidget {
-  final bool isSyncing;
-  final String? message;
-  final VoidCallback onSync;
+class _InsightsEmpty extends StatelessWidget {
+  final VoidCallback onRefresh;
 
-  const _WhoopSyncCard({
-    required this.isSyncing,
-    required this.message,
-    required this.onSync,
-  });
+  const _InsightsEmpty({required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.favorite_outline),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Biometric model signals',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: isSyncing ? null : onSync,
-                  icon: isSyncing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sync),
-                  label: const Text('Sync'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+            const Icon(Icons.query_stats, size: 36),
+            const SizedBox(height: 12),
             const Text(
-              'Pulls recent WHOOP sleep, HRV, recovery, resting heart rate, and strain into the trajectory model.',
+              'No insight data yet.',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
-            if (message != null) ...[
-              const SizedBox(height: 8),
-              Text(message!, style: const TextStyle(fontSize: 12)),
-            ],
+            const SizedBox(height: 6),
+            const Text(
+              'Add journal entries over time to unlock trend windows.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
           ],
         ),
       ),
@@ -854,296 +718,32 @@ class _WhoopSyncCard extends StatelessWidget {
   }
 }
 
-class _PredictionTrajectoryCard extends StatelessWidget {
-  final TomorrowOutlook outlook;
+class _InsightsError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
 
-  const _PredictionTrajectoryCard({required this.outlook});
+  const _InsightsError({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    final summary = outlook.trajectorySummary;
-    final coverage = outlook.modalityCoverage;
-    return Card(
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Icon(Icons.route_outlined, color: outlook.color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Prediction trajectory',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Chip(
-                  label: Text('${(outlook.confidence * 100).round()}%'),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(outlook.trajectoryLabel),
-            if (summary != null) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _SignalChip(
-                    label: 'Trend/day',
-                    value: summary.trendPerDay?.toStringAsFixed(2) ?? 'N/A',
-                  ),
-                  _SignalChip(
-                    label: 'Volatility',
-                    value: summary.volatility?.toStringAsFixed(2) ?? 'N/A',
-                  ),
-                  _SignalChip(
-                    label: 'Body adj.',
-                    value:
-                        summary.biometricAdjustment?.toStringAsFixed(2) ??
-                        'N/A',
-                  ),
-                  _SignalChip(
-                    label: 'Audio adj.',
-                    value: summary.audioAdjustment?.toStringAsFixed(2) ?? 'N/A',
-                  ),
-                ],
-              ),
-            ],
+            const Icon(Icons.error_outline, size: 32),
             const SizedBox(height: 12),
-            Row(
-              children: outlook.trajectory.take(4).map((point) {
-                return Expanded(
-                  child: Column(
-                    children: [
-                      Text('${point.horizonDays}d'),
-                      Text(
-                        point.predictedMood.toStringAsFixed(2),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        '±${point.uncertainty.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
             ),
-            if (coverage != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Signals used: ${coverage.availableModalities.isEmpty ? 'limited' : coverage.availableModalities.join(', ')}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
-              ),
-            ],
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SignalChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SignalChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      label: Text('$label: $value'),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class ModelValidationCard extends StatelessWidget {
-  final ModelValidationReport report;
-
-  const ModelValidationCard({super.key, required this.report});
-
-  @override
-  Widget build(BuildContext context) {
-    final readiness = report.readiness;
-    final coverage = report.coverage;
-    final title = readiness.studyReady
-        ? 'Study ready'
-        : readiness.multimodalValidationReady
-        ? 'Multimodal validation ready'
-        : readiness.earlyValidationReady
-        ? 'Early validation ready'
-        : 'Validation data needed';
-    final icon = readiness.studyReady
-        ? Icons.verified_outlined
-        : readiness.earlyValidationReady
-        ? Icons.fact_check_outlined
-        : Icons.science_outlined;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _ValidationChip(
-                  label: 'Daily rows',
-                  value: readiness.dailyRows.toString(),
-                ),
-                _ValidationChip(
-                  label: 'Outcome rows',
-                  value: readiness.targetRows.toString(),
-                ),
-                _ValidationChip(
-                  label: 'Journal',
-                  value: coverage.journalDays.toString(),
-                ),
-                _ValidationChip(
-                  label: 'Audio',
-                  value: coverage.audioDays.toString(),
-                ),
-                _ValidationChip(
-                  label: 'Biometric',
-                  value: coverage.biometricDays.toString(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (report.horizonMetrics.isNotEmpty)
-              _HorizonMetricRow(metrics: report.horizonMetrics),
-            if (readiness.blockers.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Next data needs',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 6),
-              ...readiness.blockers
-                  .take(3)
-                  .map(
-                    (blocker) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('- '),
-                          Expanded(child: Text(blocker)),
-                        ],
-                      ),
-                    ),
-                  ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ValidationReportLoadingCard extends StatelessWidget {
-  const _ValidationReportLoadingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 12),
-            Text('Loading model validation report...'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HorizonMetricRow extends StatelessWidget {
-  final List<HorizonMetric> metrics;
-
-  const _HorizonMetricRow({required this.metrics});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Baseline MAE by horizon',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: metrics.take(4).map((metric) {
-            return Expanded(
-              child: Column(
-                children: [
-                  Text('${metric.horizonDays}d'),
-                  Text(
-                    metric.persistenceBaselineMae?.toStringAsFixed(2) ?? 'N/A',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    'n=${metric.targetCount}',
-                    style: const TextStyle(fontSize: 11, color: Colors.white70),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-}
-
-class _ValidationChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ValidationChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: const Icon(Icons.dataset_outlined, size: 18),
-      label: Text('$label: $value'),
-      visualDensity: VisualDensity.compact,
     );
   }
 }

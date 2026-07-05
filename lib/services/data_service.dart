@@ -1256,6 +1256,53 @@ class DataService {
     }
   }
 
+  Future<Map<String, dynamic>> uploadResearchPacketToGcs() async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) {
+      return {'uploaded': false, 'reason': 'not_signed_in'};
+    }
+    if (!SettingsService.researchDataSharingEnabled) {
+      return {'uploaded': false, 'reason': 'research_sharing_disabled'};
+    }
+
+    final journalBox = await getJournalBox();
+    final audioBox = await getAudioBox();
+    final keyboardBox = await getKeyboardSessionBox();
+    final beaconBox = await getNaviBeaconSampleBox();
+    final records = MLExportService.buildDailyFeatureRecords(
+      journalBox,
+      audioEntries: audioBox.values,
+      keyboardSessions: keyboardBox.values,
+      beaconSamples: beaconBox.values,
+    );
+    if (records.isEmpty) {
+      return {'uploaded': false, 'reason': 'no_research_records'};
+    }
+
+    final response = await http
+        .post(
+          Uri.parse('${BackendConfig.baseUrl}/research/packets'),
+          headers: await BackendConfig.getAuthHeaders(),
+          body: jsonEncode({
+            'records': records,
+            'app_version': 'navi_flutter_1.0.0+1',
+            'client_generated_at': DateTime.now().toUtc().toIso8601String(),
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    final body = jsonDecode(response.body);
+    if (response.statusCode >= 400) {
+      throw Exception(
+        body is Map && body['detail'] != null
+            ? body['detail'].toString()
+            : 'HTTP ${response.statusCode}',
+      );
+    }
+    return body is Map<String, dynamic>
+        ? body
+        : {'uploaded': false, 'reason': 'unexpected_response'};
+  }
+
   Future<void> _retryQueuedAudioSync(Box<AudioEntry> audioBox) async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {

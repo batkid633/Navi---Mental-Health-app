@@ -1,0 +1,47 @@
+{
+  "schema_name": "navi_research_packet",
+  "schema_version": "1.0.0",
+  "description": "Versioned upload envelope for consented Navi research feature records. Raw journal text, raw audio, transcripts, names, emails, OAuth tokens, and raw Firebase UIDs are excluded.",
+  "storage": {
+    "landing_store": "Google Cloud Storage",
+    "object_pattern": "research_packets/v1.0.0/YYYY/MM/DD/{participant_code}/{packet_id}.json"
+  },
+  "required_fields": [
+    "schema_name",
+    "schema_version",
+    "packet_id",
+    "generated_at",
+    "source_system",
+    "participant_code",
+    "record_count",
+    "date_range",
+    "privacy",
+    "quality",
+    "records"
+  ],
+  "forbidden_fields": [
+    "text",
+    "journal_text",
+    "raw_text",
+    "transcript",
+    "transcription",
+    "raw_audio",
+    "audio_bytes",
+    "file_path",
+    "download_url",
+    "email",
+    "name",
+    "firebase_uid",
+    "uid",
+    "oauth_token",
+    "access_token",
+    "refresh_token"
+  ],
+  "record_schema": "backend/ml/research_daily_feature_schema.json",
+  "privacy": {
+    "data_classification": "coded_research_feature_packet",
+    "identifiability": "coded",
+    "raw_text_included": false,
+    "raw_audio_included": false
+  }
+}

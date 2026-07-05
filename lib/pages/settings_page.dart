@@ -48,6 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isCheckingBackend = false;
   bool _isCheckingCloudJournal = false;
   bool _isSyncingNotifications = false;
+  bool _isUploadingResearchPacket = false;
   final Map<HealthTrackerProvider, HealthTrackerStatus> _trackerStatuses = {};
   final Map<HealthTrackerProvider, String> _trackerRedirectUris = {};
   final Map<HealthTrackerProvider, String> _trackerAuthUrls = {};
@@ -558,6 +559,70 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _uploadResearchPacket() async {
+    final dataService = widget.dataService;
+    if (dataService == null) return;
+    if (!_researchDataSharingEnabled) {
+      setState(() {
+        _statusMessage =
+            'Turn on research/data-sharing before uploading a research packet.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isUploadingResearchPacket = true;
+      _statusMessage = null;
+    });
+
+    try {
+      await SettingsService.saveResearchDataSharingEnabled(true);
+      await dataService.syncPrivacyConsentToCloud();
+      final result = await dataService.uploadResearchPacketToGcs();
+      final uploaded = result['uploaded'] == true;
+      final skipped = result['skipped'] == true;
+      final reason = result['reason']?.toString();
+      final recordCount = result['record_count']?.toString();
+      await AnalyticsService.track(
+        'research_packet_upload_requested',
+        properties: {
+          'uploaded': uploaded,
+          'skipped': skipped,
+          'reason': reason ?? '',
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        if (uploaded) {
+          _statusMessage =
+              'Research packet uploaded${recordCount == null ? '' : ' ($recordCount records)'}.';
+        } else if (reason == 'no_research_records') {
+          _statusMessage =
+              'No research packet was uploaded because there is not enough insight data yet.';
+        } else if (skipped &&
+            reason == 'research_packet_bucket_not_configured') {
+          _statusMessage =
+              'Research packet was prepared, but the cloud bucket is not configured yet.';
+        } else {
+          _statusMessage =
+              'Research packet was not uploaded${reason == null ? '' : ': $reason'}.';
+        }
+      });
+    } catch (error) {
+      await AnalyticsService.track('research_packet_upload_failed');
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = 'Unable to upload research packet: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingResearchPacket = false;
+        });
+      }
+    }
   }
 
   Future<void> _exportEncryptionRecoveryKit() async {
@@ -1596,6 +1661,22 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Optional. Allows de-identified feature records to be sent for model improvement and potential long-term academic research.',
                   ),
                 ),
+                if (_researchDataSharingEnabled) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _isUploadingResearchPacket
+                        ? null
+                        : _uploadResearchPacket,
+                    icon: _isUploadingResearchPacket
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('Upload research packet'),
+                  ),
+                ],
                 SwitchListTile(
                   value: _keyboardTrackingEnabled,
                   onChanged: (value) {

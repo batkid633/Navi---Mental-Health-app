@@ -69,7 +69,7 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Navi uses sensitive mental health and wellbeing data to provide journaling, mood insights, audio logs, and longitudinal patterns. These choices control what is allowed.',
+              'A quick setup so Navi knows what it can use, what should stay off, and when to point you toward human help.',
             ),
             const SizedBox(height: 16),
             const CrisisResourcesCard(),
@@ -81,9 +81,9 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
                   _notEmergencyCareAcknowledged = value ?? false;
                 });
               },
-              title: const Text('I understand Navi is not emergency care'),
+              title: const Text('I know Navi is not for emergencies'),
               subtitle: const Text(
-                'Navi does not provide diagnosis, treatment, crisis monitoring, or emergency response.',
+                'If I might hurt myself or someone else, I should contact emergency services or a crisis line right away.',
               ),
             ),
             CheckboxListTile(
@@ -93,11 +93,9 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
                   _healthDataConsent = value ?? false;
                 });
               },
-              title: const Text(
-                'I consent to processing my mental health data',
-              ),
+              title: const Text('Navi can use my entries to power the app'),
               subtitle: const Text(
-                'This includes journal text, mood signals, audio metadata, analysis outputs, and related wellbeing patterns used by app features.',
+                'This lets Navi save journals, mood signals, audio details, analysis results, and wellbeing patterns for my account.',
               ),
             ),
             CheckboxListTile(
@@ -107,9 +105,9 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
                   _privacyPolicyAccepted = value ?? false;
                 });
               },
-              title: const Text('I accept the privacy and safety terms'),
+              title: const Text('I have reviewed the privacy and safety terms'),
               subtitle: const Text(
-                'I understand my settings can be changed later, and optional research sharing is separate from app use.',
+                'I can change optional settings later. Research sharing is separate and is not required to use Navi.',
               ),
             ),
             Wrap(

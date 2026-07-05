@@ -85,6 +85,12 @@ class RuntimeSettings:
     analytics_bigquery_location: str = (
         normalize_env(os.getenv("ANALYTICS_BIGQUERY_LOCATION")) or "US"
     )
+    research_packet_bucket: str | None = normalize_env(
+        os.getenv("RESEARCH_PACKET_BUCKET")
+    )
+    research_packet_prefix: str = (
+        normalize_env(os.getenv("RESEARCH_PACKET_PREFIX")) or "research_packets"
+    )
 
 
 SETTINGS = RuntimeSettings()
@@ -224,6 +230,13 @@ def config_check() -> dict[str, Any]:
                 normalize_env(os.getenv("ANALYTICS_UID_HASH_SALT_SECRET"))
             ),
         },
+        "research_packets": {
+            "bucket_configured": bool(SETTINGS.research_packet_bucket),
+            "prefix": SETTINGS.research_packet_prefix,
+            "uid_hash_salt_secret_configured": bool(
+                normalize_env(os.getenv("RESEARCH_UID_HASH_SALT_SECRET"))
+            ),
+        },
         "warnings": [],
         "ok": True,
     }
@@ -270,6 +283,16 @@ def config_check() -> dict[str, Any]:
         ):
             checks["warnings"].append(
                 "ANALYTICS_UID_HASH_SALT_SECRET is recommended before production analytics export"
+            )
+        if not SETTINGS.research_packet_bucket:
+            checks["warnings"].append(
+                "RESEARCH_PACKET_BUCKET is not configured; research packet upload will be skipped"
+            )
+        if SETTINGS.research_packet_bucket and not normalize_env(
+            os.getenv("RESEARCH_UID_HASH_SALT_SECRET")
+        ):
+            checks["warnings"].append(
+                "RESEARCH_UID_HASH_SALT_SECRET is recommended before production research packet export"
             )
         if not checks["whoop_redirect_uri_configured"]:
             checks["warnings"].append("WHOOP_REDIRECT_URI is not configured")

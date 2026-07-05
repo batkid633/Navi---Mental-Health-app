@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import BackgroundTasks, Depends, FastAPI, Request, UploadFile, File, HTTPException, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from pathlib import Path
 import asyncio
 import csv
@@ -38,6 +38,12 @@ try:
         enrich_research_record,
         model_dataset_frame,
     )
+    from research_packets import (
+        RESEARCH_PACKET_SCHEMA_NAME,
+        RESEARCH_PACKET_SCHEMA_VERSION,
+        build_research_packet,
+        upload_packet_to_gcs,
+    )
     from sentiment.vader import analyze_sentiment
     from ml.predict_mood import predict_next_day
     from ml.trajectory_model import predict_trajectory
@@ -72,6 +78,12 @@ except ModuleNotFoundError:
         RESEARCH_DAILY_FEATURE_SCHEMA_VERSION,
         enrich_research_record,
         model_dataset_frame,
+    )
+    from .research_packets import (
+        RESEARCH_PACKET_SCHEMA_NAME,
+        RESEARCH_PACKET_SCHEMA_VERSION,
+        build_research_packet,
+        upload_packet_to_gcs,
     )
     from .sentiment.vader import analyze_sentiment
     from .ml.predict_mood import predict_next_day
@@ -629,6 +641,11 @@ class DailyFeatureRecord(BaseModel):
 class DailyFeaturesRequest(BaseModel):
     records: list[DailyFeatureRecord] = Field(default_factory=list, max_length=MAX_DAILY_FEATURE_RECORDS)
 
+class ResearchPacketRequest(BaseModel):
+    records: list[dict[str, Any]] = Field(default_factory=list, min_length=1, max_length=MAX_DAILY_FEATURE_RECORDS)
+    app_version: str | None = Field(default=None, max_length=80)
+    client_generated_at: str | None = Field(default=None, max_length=80)
+
 class CheckInDispatchRequest(BaseModel):
     dry_run: bool = True
     due_only: bool = True
@@ -976,6 +993,62 @@ def save_daily_features(
         "schema_name": RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
         "schema_version": RESEARCH_DAILY_FEATURE_SCHEMA_VERSION,
         "model_columns": MODEL_DATASET_COLUMNS,
+    }
+
+@app.post("/research/packets")
+def upload_research_packet(
+    req: ResearchPacketRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    if current_user.claims and current_user.claims.get("auth_disabled"):
+        return {
+            "uploaded": False,
+            "skipped": True,
+            "reason": "auth_disabled_local_dev",
+            "schema_name": RESEARCH_PACKET_SCHEMA_NAME,
+            "schema_version": RESEARCH_PACKET_SCHEMA_VERSION,
+        }
+
+    try:
+        # Build once against raw client dictionaries so forbidden raw-content
+        # fields are rejected before the typed daily-feature model can ignore
+        # unknown extras.
+        build_research_packet(
+            uid=current_user.uid,
+            records=[dict(record) for record in req.records],
+            app_version=req.app_version,
+            client_generated_at=req.client_generated_at,
+        )
+        rows = [_model_to_dict(DailyFeatureRecord(**record)) for record in req.records]
+        for row in rows:
+            row["date"] = _parse_iso_date(str(row.get("date") or ""))
+        packet = build_research_packet(
+            uid=current_user.uid,
+            records=rows,
+            app_version=req.app_version,
+            client_generated_at=req.client_generated_at,
+        )
+        upload_result = upload_packet_to_gcs(packet)
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    log_product_event(
+        "research_packet_upload_finished",
+        current_user,
+        {
+            "uploaded": upload_result.get("uploaded"),
+            "skipped": upload_result.get("skipped"),
+            "reason": upload_result.get("reason"),
+            "schema_name": RESEARCH_PACKET_SCHEMA_NAME,
+            "schema_version": RESEARCH_PACKET_SCHEMA_VERSION,
+            "record_count": packet.get("record_count"),
+        },
+    )
+    return {
+        **upload_result,
+        "schema_name": RESEARCH_PACKET_SCHEMA_NAME,
+        "schema_version": RESEARCH_PACKET_SCHEMA_VERSION,
+        "record_count": packet.get("record_count"),
+        "date_range": packet.get("date_range"),
     }
 
 from ml.insight_trends import load_insight_trends

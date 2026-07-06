@@ -215,6 +215,37 @@ class ResearchSchemaAndAnalyticsTest(unittest.TestCase):
         self.assertAlmostEqual(mood_a, 0.10)
         self.assertAlmostEqual(mood_b, 0.80)
 
+    def test_apple_health_sync_merges_user_biometric_daily_rows(self):
+        response = self.client.post(
+            "/apple-health/sync",
+            json={
+                "days": 2,
+                "records": [
+                    {
+                        "date": "2026-06-12",
+                        "sleep_hours": 7.25,
+                        "sleep_efficiency": 91.0,
+                        "resting_hr": 58.0,
+                        "hrv_rmssd": 72.0,
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["provider"], "apple_health")
+        self.assertEqual(body["requested_days"], 2)
+        self.assertEqual(body["fetched"], 1)
+        self.assertEqual(body["saved"], 1)
+
+        dataset_path = user_dataset_path(self.user.uid)
+        with dataset_path.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual(rows[0]["sleep_hours"], "7.25")
+        self.assertEqual(rows[0]["resting_hr"], "58.0")
+        self.assertEqual(rows[0]["hrv_rmssd"], "72.0")
+
     def _seed_daily_features_for_user(self, uid, sentiment):
         original_user = self.user
         self.user = CurrentUser(uid=uid, claims={"test": True})

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/backend_config.dart';
+import 'apple_health_service.dart';
 
 enum HealthTrackerProvider {
   whoop(
@@ -26,7 +27,7 @@ enum HealthTrackerProvider {
     label: 'Apple Health',
     statusPath: '/apple-health/status',
     connectPath: null,
-    syncPath: null,
+    syncPath: '/apple-health/sync',
   );
 
   final String id;
@@ -210,6 +211,10 @@ class HealthTrackerService {
     HealthTrackerProvider provider, {
     int days = 30,
   }) async {
+    if (provider == HealthTrackerProvider.appleHealth) {
+      return AppleHealthService.syncDailyMetrics(days: days);
+    }
+
     final syncPath = provider.syncPath;
     if (syncPath == null) {
       throw Exception('${provider.label} does not support backend sync yet.');

@@ -646,6 +646,19 @@ class ResearchPacketRequest(BaseModel):
     app_version: str | None = Field(default=None, max_length=80)
     client_generated_at: str | None = Field(default=None, max_length=80)
 
+class BiometricDailyMetricRecord(BaseModel):
+    date: str = Field(min_length=8, max_length=40)
+    sleep_hours: float | None = None
+    sleep_efficiency: float | None = None
+    resting_hr: float | None = None
+    hrv_rmssd: float | None = None
+    recovery_score: float | None = None
+    strain: float | None = None
+
+class AppleHealthSyncRequest(BaseModel):
+    days: int = Field(default=30, ge=1, le=90)
+    records: list[BiometricDailyMetricRecord] = Field(default_factory=list, max_length=90)
+
 class CheckInDispatchRequest(BaseModel):
     dry_run: bool = True
     due_only: bool = True
@@ -1287,14 +1300,46 @@ def fitbit_status(current_user: CurrentUser = Depends(get_current_user)):
 @app.get("/apple-health/status")
 def apple_health_status(current_user: CurrentUser = Depends(get_current_user)):
     return {
-        "connected": False,
-        "configured": False,
-        "setup_required": True,
+        "connected": True,
+        "configured": True,
+        "setup_required": False,
         "platform_native": True,
         "message": (
-            "Apple Health uses native HealthKit permissions in the iOS app. "
-            "Add HealthKit entitlements and the Flutter health integration before enabling sync."
+            "Apple Health uses native HealthKit permissions on iPhone. "
+            "Use Sync after granting Health access on the device."
         ),
+    }
+
+@app.post("/apple-health/sync")
+def apple_health_sync_daily_metrics(
+    req: AppleHealthSyncRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    metric_rows = [_model_to_dict(record) for record in req.records]
+    for row in metric_rows:
+        row["date"] = _parse_iso_date(str(row.get("date") or ""))
+    metric_rows = [
+        row for row in metric_rows
+        if any(pd.notna(row.get(column)) for column in BIOMETRIC_COLUMNS)
+    ]
+    result = _merge_biometric_metrics_into_user_dataset(
+        current_user.uid,
+        metric_rows,
+    )
+    log_product_event(
+        "apple_health_daily_metrics_synced",
+        current_user,
+        {
+            "requested_days": req.days,
+            "fetched": len(metric_rows),
+            "saved": result.get("saved"),
+        },
+    )
+    return {
+        "provider": "apple_health",
+        "requested_days": req.days,
+        "fetched": len(metric_rows),
+        **result,
     }
 
 @app.get("/journal/history")

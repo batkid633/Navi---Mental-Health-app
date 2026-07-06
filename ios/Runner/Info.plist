@@ -47,6 +47,10 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to record audio logs for mood tracking.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Navi reads Apple Health sleep and heart metrics you choose to share so it can improve your private mood trends and insights.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Navi does not write to Apple Health in this version.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Navi uses Bluetooth to connect to your Navi Beacon biometric sensor.</string>
 	<key>NSPrivacyTracking</key>

@@ -73,7 +73,7 @@ spec:
         - name: ANALYTICS_UID_HASH_SALT_SECRET
           value: "analytics-uid-hash-salt"
         - name: ALLOW_CORS_FROM
-          value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com"
+          value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com,https://app.navi-mentalhealth.com"
         - name: CLOUDSQL_CONNECTION_NAME
           valueFrom:
             secretKeyRef:
@@ -235,7 +235,7 @@ spec:
         - name: ANALYTICS_UID_HASH_SALT_SECRET
           value: "analytics-uid-hash-salt"
         - name: ALLOW_CORS_FROM
-          value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com"
+          value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com,https://app.navi-mentalhealth.com"
         
         resources:
           limits:

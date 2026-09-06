@@ -1,6 +1,6 @@
 ENVIRONMENT: production
 AUTH_REQUIRED: "true"
-ALLOW_CORS_FROM: "http://localhost:5000,http://127.0.0.1:5000,https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com"
+ALLOW_CORS_FROM: "http://localhost:5000,http://127.0.0.1:5000,https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com,https://app.navi-mentalhealth.com"
 SECRET_MANAGER_PROJECT_ID: project-bc878e6c-6f53-4f24-88a
 OPENAI_API_KEY_SECRET: openai-api-key
 WHOOP_CLIENT_ID_SECRET: whoop-client-id

@@ -2,6 +2,14 @@
   "projects": {
     "default": "project-bc878e6c-6f53-4f24-88a"
   },
-  "targets": {},
+  "targets": {
+    "project-bc878e6c-6f53-4f24-88a": {
+      "hosting": {
+        "marketing": [
+          "navi-mentalhealth"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

@@ -7,13 +7,19 @@ import 'package:uuid/uuid.dart';
 import 'analytics_service.dart';
 import 'cloud_persistence_service.dart';
 import 'settings_service.dart';
+import 'local_check_in_service.dart';
 
 class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   NotificationService._();
 
-  final CloudPersistenceService _cloudPersistence = CloudPersistenceService();
+  late final CloudPersistenceService _cloudPersistence =
+      CloudPersistenceService();
+  final LocalCheckInService _localCheckIn = LocalCheckInService();
+
+  bool get usesLocalReminders =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
@@ -30,6 +36,11 @@ class NotificationService {
 
   Future<void> init() async {
     if (_initialized || !isSupported) {
+      return;
+    }
+
+    if (usesLocalReminders) {
+      _initialized = true;
       return;
     }
 
@@ -103,6 +114,21 @@ class NotificationService {
 
     await init();
     await SettingsService.init();
+
+    if (usesLocalReminders) {
+      final signedIn = uid != null && uid.isNotEmpty;
+      final result = await _localCheckIn.configure(
+        enabled: signedIn && SettingsService.checkInNotificationsEnabled,
+        timeMinutes: SettingsService.checkInNotificationTimeMinutes,
+      );
+      final status = result['permissionStatus'] as String?;
+      return NotificationRegistrationResult(
+        supported: true,
+        enabled: result['scheduled'] == true,
+        permissionGranted: status == 'authorized' || status == 'provisional',
+        permissionStatus: signedIn ? status : 'signed_out',
+      );
+    }
 
     if (uid == null || uid.isEmpty || !SettingsService.cloudSyncEnabled) {
       return const NotificationRegistrationResult(

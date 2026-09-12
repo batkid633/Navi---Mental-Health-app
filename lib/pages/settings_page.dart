@@ -437,18 +437,40 @@ class _SettingsPageState extends State<SettingsPage> {
       enabled: _checkInNotificationsEnabled,
       timeMinutes: _checkInNotificationTimeMinutes,
     );
-    final result = await NotificationService.instance.configureForUser(
-      widget.authService?.currentUserId,
-    );
+    late final NotificationRegistrationResult result;
+    try {
+      result = await NotificationService.instance.configureForUser(
+        widget.authService?.currentUserId,
+      );
+    } catch (error) {
+      if (!NotificationService.instance.usesLocalReminders) rethrow;
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Unable to apply the reminder. Please try again.';
+        });
+      }
+      return const NotificationRegistrationResult(
+        supported: true,
+        enabled: false,
+        permissionGranted: false,
+        permissionStatus: 'schedule_error',
+      );
+    }
     if (!mounted) {
       return result;
     }
     setState(() {
       if (!result.supported) {
         _statusMessage = 'Notifications are not supported on this platform.';
+      } else if (_checkInNotificationsEnabled &&
+          result.permissionStatus == 'signed_out') {
+        _statusMessage = 'Sign in to enable your daily check-in reminder.';
       } else if (_checkInNotificationsEnabled && !result.permissionGranted) {
-        _statusMessage =
-            'Notification settings saved. Permission was not granted on this device.';
+        _statusMessage = NotificationService.instance.usesLocalReminders
+            ? 'Allow notifications in iPhone Settings > Notifications > Navi Personal, then apply your reminder settings again.'
+            : 'Notification settings saved. Permission was not granted on this device.';
+      } else if (_checkInNotificationsEnabled && !result.enabled) {
+        _statusMessage = 'The reminder was not scheduled. Please try again.';
       } else {
         _statusMessage = successMessage;
       }
@@ -1588,7 +1610,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                   title: const Text('Check-in notifications'),
                   subtitle: Text(
-                    'Let Navi send a neutral daily check-in prompt around ${_formatCheckInNotificationTime()}.',
+                    NotificationService.instance.usesLocalReminders
+                        ? 'This iPhone will remind you daily at ${_formatCheckInNotificationTime()}, even when Navi is closed.'
+                        : 'Let Navi send a neutral daily check-in prompt around ${_formatCheckInNotificationTime()}.',
                   ),
                 ),
                 Padding(

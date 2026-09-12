@@ -22,11 +22,13 @@ class _AuthGateState extends State<AuthGate> {
   final DataService _dataService = DataService();
   bool _localTestMode = false;
   String? _lastNotificationUserId;
+  bool _hasSyncedNotifications = false;
 
   void _syncNotificationsForUser(String? uid) {
-    if (_lastNotificationUserId == uid) {
+    if (_hasSyncedNotifications && _lastNotificationUserId == uid) {
       return;
     }
+    _hasSyncedNotifications = true;
     _lastNotificationUserId = uid;
     NotificationService.instance.configureForUser(uid).then((_) {}).catchError((
       error,

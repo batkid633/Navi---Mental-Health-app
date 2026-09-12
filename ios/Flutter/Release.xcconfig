@@ -1,1 +1,4 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+// Surface signing failures instead of leaving unsigned embedded frameworks.
+COCOAPODS_PARALLEL_CODE_SIGN=false

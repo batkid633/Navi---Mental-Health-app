@@ -128,6 +128,7 @@ class _NaviHomeState extends State<NaviHome> {
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => SettingsPage(
@@ -155,6 +156,7 @@ class _NaviHomeState extends State<NaviHome> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,
         onDestinationSelected: (index) {
+          FocusManager.instance.primaryFocus?.unfocus();
           setState(() => _tabIndex = index);
           AnalyticsService.track('tab_viewed', properties: {'index': index});
         },

@@ -30,6 +30,7 @@ class _JournalPageState extends State<JournalPage> {
   String? _saveMessage;
 
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _journalFocus = FocusNode();
   final DateFormat _dateFormat = DateFormat('MMM d, yyyy h:mm a');
   final Uuid _uuid = const Uuid();
   KeyboardTextControllerTracker? _keyboardTracker;
@@ -82,12 +83,15 @@ class _JournalPageState extends State<JournalPage> {
   void dispose() {
     unawaited(_keyboardTracker?.dispose());
     _controller.dispose();
+    _journalFocus.dispose();
     super.dispose();
   }
 
   Future<void> _addEntry() async {
     final text = _controller.text.trim();
     if (text.isEmpty || journalBox == null) return;
+
+    _journalFocus.unfocus();
 
     setState(() {
       _isLoading = true;
@@ -437,6 +441,8 @@ class _JournalPageState extends State<JournalPage> {
             _syncSummary(entries),
             Expanded(
               child: ListView.builder(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 itemCount: entries.length,
                 itemBuilder: (context, index) {
                   final entry = entries[index];
@@ -503,6 +509,7 @@ class _JournalPageState extends State<JournalPage> {
                       ],
                     ),
                     onTap: () {
+                      _journalFocus.unfocus();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -527,14 +534,27 @@ class _JournalPageState extends State<JournalPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Journal')),
+      // NaviHome already resizes around the keyboard; avoid resizing twice.
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        title: const Text('Journal'),
+        actions: [
+          IconButton(
+            tooltip: 'Hide keyboard',
+            onPressed: _journalFocus.unfocus,
+            icon: const Icon(Icons.keyboard_hide),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               controller: _controller,
-              maxLines: null,
+              focusNode: _journalFocus,
+              onTapOutside: (_) => _journalFocus.unfocus(),
+              maxLines: 5,
               minLines: 3,
               decoration: const InputDecoration(
                 hintText: 'Write your thoughts...',

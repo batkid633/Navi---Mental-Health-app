@@ -368,18 +368,16 @@ def _first_matching_daily(records: list[dict], key: str, day_iso: str) -> dict |
 
 def _sync_sleep_metrics(day_iso: str) -> tuple[float | None, float | None]:
     # Sleep records often end the morning after they start, so query by civil end date.
-    next_day = _next_day_iso(day_iso)
     records = _reconcile_points(
         "sleep",
         f'sleep.interval.civil_end_time >= "{day_iso}"',
     )
     best_sleep = None
     best_minutes = 0.0
-    for record in records:
+    for record in sorted(records, key=lambda r: json.dumps(r, sort_keys=True)):
         sleep = record.get("sleep") or {}
         summary = sleep.get("summary") or {}
         interval = sleep.get("interval") or {}
-        end_time = interval.get("endTime") or ""
         civil_end = interval.get("civilEndTime", {}).get("date") or {}
         civil_end_iso = None
         if civil_end:
@@ -388,10 +386,9 @@ def _sync_sleep_metrics(day_iso: str) -> tuple[float | None, float | None]:
                 f"{int(civil_end.get('month', 0)):02d}-"
                 f"{int(civil_end.get('day', 0)):02d}"
             )
-        if civil_end_iso not in {day_iso, next_day} and not end_time.startswith(day_iso):
+        if civil_end_iso != day_iso:
             continue
         minutes_asleep = _to_float(summary.get("minutesAsleep"))
-        minutes_period = _to_float(summary.get("minutesInSleepPeriod"))
         if minutes_asleep is not None and minutes_asleep > best_minutes:
             best_sleep = summary
             best_minutes = minutes_asleep
@@ -423,29 +420,23 @@ def _sync_daily_hrv(day_iso: str) -> float | None:
         f'daily_heart_rate_variability.date >= "{day_iso}"',
     )
     payload = _first_matching_daily(records, "dailyHeartRateVariability", day_iso)
-    return (
-        _to_float((payload or {}).get("averageHeartRateVariabilityMilliseconds"))
-        or _to_float(
-            (payload or {}).get(
-                "deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds"
-            )
-        )
-    )
+    # Use only the explicitly named RMSSD field. Average HRV has no verified
+    # definition in this checkout and must not silently enter an RMSSD model.
+    return _to_float((payload or {}).get(
+        "deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds"
+    ))
 
 
-def _sync_activity_strain_proxy(day_iso: str) -> float | None:
-    # Google Health does not expose WHOOP strain. Active Zone Minutes is mapped
-    # to the same NAVI feature slot as a conservative activity-load proxy.
+def _sync_active_zone_minutes(day_iso: str) -> float | None:
     points = _daily_rollup("active-zone-minutes", day_iso)
-    total_minutes = 0.0
+    values = []
     for point in points:
-        active_zone = point.get("activeZoneMinutes") or {}
-        for key, value in active_zone.items():
-            if key.endswith("Sum") or key in {"activeZoneMinutes", "activeZoneMinutesSum"}:
-                total_minutes += _to_float(value) or 0.0
-    if total_minutes <= 0:
-        return None
-    return min(21.0, round(total_minutes / 5.0, 3))
+        active = point.get("activeZoneMinutes") or {}
+        # One explicit total only; never sum totals and zone subtotals together.
+        value = _to_float(active.get("activeZoneMinutesSum"))
+        if value is not None:
+            values.append(value)
+    return sum(values) if values else None
 
 
 def sync_google_health_day(day_iso: str) -> dict:
@@ -456,10 +447,17 @@ def sync_google_health_day(day_iso: str) -> dict:
         "sleep_efficiency": sleep_efficiency,
         "resting_hr": _sync_daily_resting_hr(day_iso),
         "hrv_rmssd": _sync_daily_hrv(day_iso),
-        # Google Health does not provide a direct WHOOP recovery score.
         "recovery_score": None,
-        "strain": _sync_activity_strain_proxy(day_iso),
+        "strain": None,
+        "active_zone_minutes": _sync_active_zone_minutes(day_iso),
         "source": "google_health",
+        "normalization_version": "2.0.0",
+        "day_policy": "sleep_civil_end_date;other_metrics_provider_civil_date",
+        "metric_provenance": {
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "aggregation": "longest_sleep;provider_daily_rhr;deep_sleep_rmssd;explicit_activity_total",
+            "timezone_basis": "provider_civil_date;offset_not_available",
+        },
     }
 
 

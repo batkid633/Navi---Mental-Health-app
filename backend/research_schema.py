@@ -78,6 +78,9 @@ MODEL_DATASET_COLUMNS = (
     + RESEARCH_FEATURE_COLUMNS
     + MISSINGNESS_COLUMNS
     + TARGET_COLUMNS
+    # Storage metadata/additional measurements, not new trained-model inputs.
+    + ["hrv_sdnn", "active_zone_minutes", "biometric_observations",
+       "biometric_sources", "biometric_normalization_version"]
 )
 
 

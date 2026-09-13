@@ -31,6 +31,7 @@ try:
     from config import BACKEND_DIR, SETTINGS, config_check
     from auth import CurrentUser, get_current_user, require_admin
     from analytics_ingestion import analytics_sink, normalize_event
+    from biometric_normalization import merge_day, preserve_biometrics
     from research_schema import (
         MODEL_DATASET_COLUMNS,
         RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
@@ -72,6 +73,7 @@ except ModuleNotFoundError:
     from .config import BACKEND_DIR, SETTINGS, config_check
     from .auth import CurrentUser, get_current_user, require_admin
     from .analytics_ingestion import analytics_sink, normalize_event
+    from .biometric_normalization import merge_day, preserve_biometrics
     from .research_schema import (
         MODEL_DATASET_COLUMNS,
         RESEARCH_DAILY_FEATURE_SCHEMA_NAME,
@@ -654,6 +656,10 @@ class BiometricDailyMetricRecord(BaseModel):
     hrv_rmssd: float | None = None
     recovery_score: float | None = None
     strain: float | None = None
+    hrv_sdnn: float | None = None
+    normalization_version: str = Field(default="unverified", max_length=20)
+    day_policy: str = Field(default="unspecified", max_length=200)
+    metric_provenance: dict[str, Any] = Field(default_factory=dict)
 
 class AppleHealthSyncRequest(BaseModel):
     days: int = Field(default=30, ge=1, le=90)
@@ -972,6 +978,11 @@ def save_daily_features(
         row["date"] = _parse_iso_date(str(row.get("date") or ""))
     if not rows:
         return {"saved": 0}
+
+    existing_path = user_dataset_path(current_user.uid)
+    if existing_path.exists():
+        existing_rows = pd.read_csv(existing_path).to_dict("records")
+        rows = preserve_biometrics(rows, existing_rows)
 
     rows = [
         enrich_research_record(row, user_id_hash=_user_hash(current_user.uid))
@@ -1318,10 +1329,7 @@ def apple_health_sync_daily_metrics(
     metric_rows = [_model_to_dict(record) for record in req.records]
     for row in metric_rows:
         row["date"] = _parse_iso_date(str(row.get("date") or ""))
-    metric_rows = [
-        row for row in metric_rows
-        if any(pd.notna(row.get(column)) for column in BIOMETRIC_COLUMNS)
-    ]
+        row["source"] = "apple_health"
     result = _merge_biometric_metrics_into_user_dataset(
         current_user.uid,
         metric_rows,
@@ -1388,6 +1396,8 @@ BIOMETRIC_COLUMNS = [
     "hrv_rmssd",
     "recovery_score",
     "strain",
+    "hrv_sdnn",
+    "active_zone_minutes",
 ]
 
 
@@ -1460,15 +1470,11 @@ def _merge_biometric_metrics_into_user_dataset(
             df.loc[date_value, "missing_journal"] = 1
             df.loc[date_value, "missing_audio"] = 1
             df.loc[date_value, "missing_keyboard"] = 1
-        for column in BIOMETRIC_COLUMNS:
-            value = row.get(column)
-            if pd.notna(value):
-                df.loc[date_value, column] = value
-
-        df.loc[date_value, "missing_biometrics"] = 0
-        df.loc[date_value, "missing_sleep"] = 0 if pd.notna(df.loc[date_value].get("sleep_hours")) else 1
-        df.loc[date_value, "missing_hrv"] = 0 if pd.notna(df.loc[date_value].get("hrv_rmssd")) else 1
-        df.loc[date_value, "missing_recovery"] = 0 if pd.notna(df.loc[date_value].get("recovery_score")) else 1
+        normalized = merge_day(df.loc[date_value].to_dict(), row.to_dict())
+        for column, value in normalized.items():
+            if column not in df.columns:
+                df[column] = None
+            df.at[date_value, column] = value
 
     df = df.reset_index(drop=True).sort_values("date")
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date.astype(str)
@@ -1560,10 +1566,6 @@ def google_health_sync_daily_metrics(
         metric_rows = [
             fitbit_api.sync_google_health_day(day_value)
             for day_value in day_values
-        ]
-        metric_rows = [
-            row for row in metric_rows
-            if any(pd.notna(row.get(column)) for column in BIOMETRIC_COLUMNS)
         ]
         result = _merge_biometric_metrics_into_user_dataset(
             current_user.uid,

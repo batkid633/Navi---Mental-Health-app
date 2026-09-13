@@ -92,7 +92,7 @@ class FitbitOAuthTest(unittest.TestCase):
                 {
                     "dailyHeartRateVariability": {
                         "date": {"year": 2026, "month": 6, "day": 4},
-                        "averageHeartRateVariabilityMilliseconds": 67,
+                        "deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds": 67,
                     }
                 }
             ],
@@ -100,6 +100,7 @@ class FitbitOAuthTest(unittest.TestCase):
         fitbit_api._daily_rollup = lambda data_type, day_iso: [
             {
                 "activeZoneMinutes": {
+                    "activeZoneMinutesSum": 50,
                     "fatBurnSum": 20,
                     "cardioSum": 30,
                 }
@@ -114,7 +115,8 @@ class FitbitOAuthTest(unittest.TestCase):
         self.assertEqual(row["resting_hr"], 52)
         self.assertEqual(row["hrv_rmssd"], 67)
         self.assertIsNone(row["recovery_score"])
-        self.assertEqual(row["strain"], 10)
+        self.assertIsNone(row["strain"])
+        self.assertEqual(row["active_zone_minutes"], 50)
         self.assertEqual(row["source"], "google_health")
 
 

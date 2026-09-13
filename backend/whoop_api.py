@@ -1,4 +1,5 @@
 import json
+import math
 import base64
 import hmac
 import hashlib
@@ -349,27 +350,29 @@ def _nested_num(record: dict, paths: list[tuple[str, ...]]) -> float | None:
 
 
 def _sleep_hours(record: dict) -> float | None:
-    millis = _nested_num(
-        record,
-        [
-            ("score", "stage_summary", "total_in_bed_time_milli"),
-            ("score", "stage_summary", "total_sleep_time_milli"),
-            ("score", "sleep_needed", "baseline_milli"),
-        ],
-    )
-    if millis is not None:
-        return millis / (1000 * 60 * 60)
+    # Measured stage durations only: never time in bed or estimated sleep need.
+    stages = (record.get("score") or {}).get("stage_summary") or {}
+    keys = ("total_light_sleep_time_milli", "total_slow_wave_sleep_time_milli",
+            "total_rem_sleep_time_milli")
+    values = [_nested_num({"v": stages.get(k)}, [("v",)]) for k in keys]
+    if any(v is None or not math.isfinite(v) or v < 0 for v in values):
+        return None
+    hours = sum(values) / 3_600_000
+    return hours if hours <= 24 else None
 
-    start = record.get("start")
-    end = record.get("end")
-    if start and end:
-        try:
-            start_dt = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(str(end).replace("Z", "+00:00"))
-            return max(0.0, (end_dt - start_dt).total_seconds() / 3600)
-        except ValueError:
+
+def _sleep_date(record: dict) -> str | None:
+    # WHOOP timestamps can be UTC; require the record's local offset.
+    try:
+        end = datetime.fromisoformat(str(record["end"]).replace("Z", "+00:00"))
+        offset = str(record["timezone_offset"])
+        sign = -1 if offset.startswith("-") else 1
+        hours, minutes = map(int, offset[1:].split(":"))
+        if end.tzinfo is None or offset[0] not in "+-" or hours > 23 or minutes > 59:
             return None
-    return None
+        return end.astimezone(timezone(sign * timedelta(hours=hours, minutes=minutes))).date().isoformat()
+    except (KeyError, ValueError, TypeError):
+        return None
 
 
 def _upsert_metric(metrics: dict[str, dict], date_key: str | None, values: dict) -> None:
@@ -397,8 +400,20 @@ def fetch_daily_metrics(days: int = 30) -> list[dict]:
     except Exception as exc:
         sleep_records = []
         errors.append(f"sleep:{exc}")
+    # Primary sleep only; stable longest measured sleep wins on the wake date.
+    sleep_records = sorted(sleep_records, key=lambda r: (_sleep_hours(r) or -1, str(r.get("id", ""))))
+    selected_sleep = {}
+    for record in sleep_records:
+        date_key = _sleep_date(record)
+        if date_key and not record.get("nap") and _sleep_hours(record) is not None:
+            selected_sleep[date_key] = record
+    sleep_records = list(selected_sleep.values())
+    sleep_dates = {str(r["id"]): _sleep_date(r) for r in sleep_records if r.get("id") is not None}
+    cycle_dates = {str(r["cycle_id"]): _sleep_date(r) for r in sleep_records if r.get("cycle_id") is not None}
     for sleep in sleep_records:
-        date_key = _date_for_record(sleep)
+        if sleep.get("nap"):
+            continue
+        date_key = _sleep_date(sleep)
         _upsert_metric(
             metrics,
             date_key,
@@ -408,7 +423,6 @@ def fetch_daily_metrics(days: int = 30) -> list[dict]:
                     sleep,
                     [
                         ("score", "sleep_efficiency_percentage"),
-                        ("score", "sleep_performance_percentage"),
                     ],
                 ),
             },
@@ -420,7 +434,7 @@ def fetch_daily_metrics(days: int = 30) -> list[dict]:
         recovery_records = []
         errors.append(f"recovery:{exc}")
     for recovery in recovery_records:
-        date_key = _date_for_record(recovery)
+        date_key = sleep_dates.get(str(recovery.get("sleep_id")))
         _upsert_metric(
             metrics,
             date_key,
@@ -441,30 +455,30 @@ def fetch_daily_metrics(days: int = 30) -> list[dict]:
         )
 
     try:
-        workout_records = _whoop_get("/activity/workout", params)
-    except Exception as exc:
-        workout_records = []
-        errors.append(f"workout:{exc}")
-    for workout in workout_records:
-        date_key = _date_for_record(workout)
-        strain = _nested_num(workout, [("score", "strain")])
-        if date_key and strain is not None:
-            day = metrics.setdefault(date_key, {"date": date_key})
-            day["strain"] = max(float(day.get("strain") or 0.0), strain)
-
-    try:
         cycle_records = _whoop_get("/cycle", params)
     except Exception as exc:
         cycle_records = []
         errors.append(f"cycle:{exc}")
     for cycle in cycle_records:
-        date_key = _date_for_record(cycle)
+        date_key = cycle_dates.get(str(cycle.get("id")))
         strain = _nested_num(cycle, [("score", "strain")])
         if date_key and strain is not None:
             day = metrics.setdefault(date_key, {"date": date_key})
             day["strain"] = max(float(day.get("strain") or 0.0), strain)
 
-    if not metrics and errors:
+    # Do not replace a complete stored snapshot with a partial API failure.
+    if errors:
         raise RuntimeError("; ".join(errors))
 
+    for row in metrics.values():
+        row["source"] = "whoop"
+        row["normalization_version"] = "2.0.0"
+        row["day_policy"] = "primary_sleep_local_end_date;recovery_and_strain_joined_by_cycle"
+        sleep = selected_sleep[row["date"]]
+        row["metric_provenance"] = {
+            "sleep_start": sleep.get("start"), "sleep_end": sleep.get("end"),
+            "timezone_offset": sleep.get("timezone_offset"),
+            "retrieved_at": end.isoformat(),
+            "aggregation": "primary_sleep_stage_sum;cycle_strain;recovery_rmssd",
+        }
     return sorted(metrics.values(), key=lambda row: row["date"])

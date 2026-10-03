@@ -12,11 +12,14 @@ metadata:
   annotations:
     run.googleapis.com/client-name: gcloud
     run.googleapis.com/client-version: latest
+    run.googleapis.com/maxScale: "3"
 spec:
   template:
     metadata:
       annotations:
-        run.googleapis.com/cloudsql-instances: "project-bc878e6c-6f53-4f24-88a:us-central1:navi-postgresql"
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/cpu-throttling: "true"
         run.googleapis.com/memory: "1Gi"
         run.googleapis.com/cpu: "1"
     spec:
@@ -74,25 +77,6 @@ spec:
           value: "analytics-uid-hash-salt"
         - name: ALLOW_CORS_FROM
           value: "https://project-bc878e6c-6f53-4f24-88a.web.app,https://project-bc878e6c-6f53-4f24-88a.firebaseapp.com,https://app.navi-mentalhealth.com"
-        - name: CLOUDSQL_CONNECTION_NAME
-          valueFrom:
-            secretKeyRef:
-              name: db-connection-name
-              key: latest
-        - name: DATABASE_USER
-          value: "navi_admin"
-        - name: DATABASE_NAME
-          value: "navi_db"
-        - name: DATABASE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: db-password
-              key: latest
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: database-url
-              key: latest
         - name: FIREBASE_ADMIN_SDK_KEY
           valueFrom:
             secretKeyRef:
@@ -133,22 +117,6 @@ spec:
   displayName: "Navi Cloud Run Service Account"
 
 ---
-# IAM Binding for Cloud SQL Client
-apiVersion: iam.cnrm.cloud.google.com/v1beta1
-kind: IAMPolicy
-metadata:
-  name: navi-cloud-run-cloudsql
-spec:
-  resourceRef:
-    apiVersion: iam.cnrm.cloud.google.com/v1beta1
-    kind: IAMServiceAccount
-    name: navi-cloud-run
-  bindings:
-  - role: roles/cloudsql.client
-    members:
-    - serviceAccount:navi-cloud-run@project-bc878e6c-6f53-4f24-88a.iam.gserviceaccount.com
-
----
 # IAM Binding for Secret Manager Access
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMPolicy
@@ -181,8 +149,8 @@ spec:
         name: navi-cloud-run
       containerConcurrency: 100
       timeoutSeconds: 3600
-      maxInstances: 1000
-      minInstances: 1
+      maxInstances: 3
+      minInstances: 0
 
       containers:
       - image: us-central1-docker.pkg.dev/project-bc878e6c-6f53-4f24-88a/navi-backend/navi-backend:latest
@@ -241,31 +209,6 @@ spec:
           limits:
             memory: 1Gi
             cpu: "1"
-
-      volumes:
-      - name: cloud-sql-socket
-        emptyDir:
-          sizeLimit: 1Gi
-
----
-# Autoscaling Policy
-apiVersion: autoscaling.cnrm.cloud.google.com/v1beta1
-kind: ComputeAutoscaler
-metadata:
-  name: navi-backend-autoscaler
-spec:
-  autoscalingPolicy:
-    minReplicas: 1
-    maxReplicas: 1000
-    cpuUtilization:
-      targetUtilization: 0.7
-    customMetricUtilizations:
-    - metric: run.googleapis.com/request_latencies
-      targetValue: 500  # Target 500ms latency
-  target:
-    apiVersion: run.cnrm.cloud.google.com/v1beta1
-    kind: RunService
-    name: navi-backend
 
 ---
 # Cloud Armor Security Policy
@@ -374,63 +317,3 @@ spec:
 
   alertStrategy:
     autoClose: 1800s
-
----
-# Cloud SQL Instance
-apiVersion: sqladmin.cnrm.cloud.google.com/v1beta1
-kind: SQLInstance
-metadata:
-  name: navi-postgresql
-spec:
-  region: us-central1
-  databaseVersion: POSTGRES_15
-  settings:
-    tier: db-f1-micro
-    availabilityType: REGIONAL
-    backupConfiguration:
-      enabled: true
-      startTime: "03:00"
-      pointInTimeRecoveryEnabled: true
-      transactionLogRetentionDays: 7
-    databaseFlags:
-    - name: log_checkpoints
-      value: "on"
-    - name: log_connections
-      value: "on"
-    - name: log_disconnections
-      value: "on"
-    ipConfiguration:
-      requireSsl: true
-      ipv4Enabled: false
-      privateNetwork: projects/project-bc878e6c-6f53-4f24-88a/global/networks/navi-vpc
-    insightsConfig:
-      queryInsightsEnabled: true
-      queryPlansPerMinute: 5
-      recordApplicationTags: true
-      recordClientAddress: true
-
----
-# Cloud SQL Database
-apiVersion: sqladmin.cnrm.cloud.google.com/v1beta1
-kind: SQLDatabase
-metadata:
-  name: navi-db
-spec:
-  instanceRef:
-    name: navi-postgresql
-  charset: UTF8
-
----
-# Cloud SQL User
-apiVersion: sqladmin.cnrm.cloud.google.com/v1beta1
-kind: SQLUser
-metadata:
-  name: navi-admin
-spec:
-  instanceRef:
-    name: navi-postgresql
-  password:
-    valueFrom:
-      secretKeyRef:
-        name: db-password
-        key: password

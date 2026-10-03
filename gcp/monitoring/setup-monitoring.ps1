@@ -40,7 +40,10 @@ $existingUptimeChecks = gcloud.cmd monitoring uptime list-configs `
   --format="value(name)"
 
 if ($existingUptimeChecks) {
-  Write-Host "Uptime check already exists; skipping create: $uptimeDisplayName"
+  foreach ($checkName in $existingUptimeChecks) {
+    gcloud.cmd monitoring uptime update $checkName --project=$ProjectId --period=5
+    if ($LASTEXITCODE -ne 0) { throw "Failed to update uptime check: $checkName" }
+  }
 } else {
   gcloud.cmd monitoring uptime create $uptimeDisplayName `
     --resource-type=uptime-url `
@@ -50,7 +53,7 @@ if ($existingUptimeChecks) {
     --port=443 `
     --validate-ssl=true `
     --request-method=get `
-    --period=1 `
+    --period=5 `
     --timeout=10 `
     --regions=usa-iowa,usa-oregon,usa-virginia
 }

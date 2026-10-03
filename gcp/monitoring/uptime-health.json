@@ -14,9 +14,11 @@
     "validateSsl": true,
     "requestMethod": "GET"
   },
-  "period": "60s",
+  "period": "300s",
   "timeout": "10s",
   "selectedRegions": [
-    "USA"
+    "USA_IOWA",
+    "USA_OREGON",
+    "USA_VIRGINIA"
   ]
 }

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -143,10 +144,47 @@ def add_secret_version(secret_name: str, value: str) -> None:
         parent = f"projects/{project_id}/secrets/{secret_name}"
 
     client = secretmanager.SecretManagerServiceClient()
-    client.add_secret_version(
+    created = client.add_secret_version(
         request={"parent": parent, "payload": {"data": value.encode("utf-8")}}
     )
     get_secret.cache_clear()
+    # Token persistence must succeed even when maintenance permissions are absent.
+    try:
+        _prune_token_versions(client, parent, created.name)
+    except Exception:
+        LOGGER.warning("token_version_cleanup_failed", exc_info=True)
+
+
+def _prune_token_versions(client: Any, parent: str, created_name: str) -> None:
+    """Bound rotating token storage; preserve recent versions and a recovery window."""
+    token_names = {
+        "whoop-tokens", "fitbit-tokens", "google-health-tokens"
+    }
+    if parent.rsplit("/", 1)[-1] not in token_names:
+        return
+    secret = client.get_secret(request={"name": parent})
+    # Never permanently destroy immediately: configure a >=7-day delay in GCP.
+    if secret.version_destroy_ttl.total_seconds() < 7 * 86400:
+        LOGGER.warning("token_version_cleanup_skipped_no_recovery_window")
+        return
+    versions = sorted(
+        client.list_secret_versions(request={"parent": parent}),
+        key=lambda version: int(version.name.rsplit("/", 1)[-1]),
+        reverse=True,
+    )
+    active = [version for version in versions if int(version.state) in (1, 2)]
+    protected = {version.name for version in active[:3]}
+    protected.update(
+        f"{secret.name}/versions/{number}" for number in secret.version_aliases.values()
+    )
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    created_number = int(created_name.rsplit("/", 1)[-1])
+    for version in active:
+        number = int(version.name.rsplit("/", 1)[-1])
+        if (version.name in protected or number >= created_number
+                or version.create_time >= cutoff or version.scheduled_destroy_time):
+            continue
+        client.destroy_secret_version(request={"name": version.name, "etag": version.etag})
 
 
 def secret_value(

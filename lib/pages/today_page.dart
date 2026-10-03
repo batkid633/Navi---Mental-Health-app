@@ -22,7 +22,7 @@ class TodayPage extends StatefulWidget {
   State<TodayPage> createState() => _TodayPageState();
 }
 
-class _TodayPageState extends State<TodayPage> {
+class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
   late Future<TomorrowOutlook?> _outlookFuture;
   Box<JournalEntry>? journalBox;
   bool _isLoading = true;
@@ -31,8 +31,24 @@ class _TodayPageState extends State<TodayPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initBox();
     _loadOutlook();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        mounted &&
+        SettingsService.personalizedInsightsEnabled) {
+      setState(() => _loadOutlook());
+    }
   }
 
   Future<void> _initBox() async {

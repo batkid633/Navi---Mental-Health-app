@@ -12,6 +12,8 @@ import '../services/settings_service.dart';
 import '../services/cloud_persistence_service.dart';
 import '../services/data_service.dart';
 import '../services/health_tracker_service.dart';
+import '../services/apple_health_service.dart';
+import '../services/local_research_repository.dart';
 import '../services/navi_beacon_ble_service.dart';
 import '../services/notification_service.dart';
 import '../utils/data_export_saver.dart';
@@ -36,6 +38,9 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _researchDataSharingEnabled = false;
+  LocalResearchRepository? _localResearch;
+  bool _localResearchBusy = false;
+  String? _localResearchError;
   bool _cloudSyncEnabled = true;
   bool _personalizedInsightsEnabled = true;
   bool _keyboardTrackingEnabled = false;
@@ -177,6 +182,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadSettings() async {
     await SettingsService.init();
+    try {
+      _localResearch = await widget.dataService?.localResearchRepository();
+    } catch (_) {
+      _localResearchError = "Local research storage could not be opened.";
+    }
+    if (!mounted) return;
     setState(() {
       _researchDataSharingEnabled = SettingsService.researchDataSharingEnabled;
       _cloudSyncEnabled = SettingsService.cloudSyncEnabled;
@@ -351,6 +362,182 @@ class _SettingsPageState extends State<SettingsPage> {
         _isLoading = false;
         _connectingTracker = null;
       });
+    }
+  }
+
+  Future<void> _setLocalResearch(bool enabled) async {
+    final repository = _localResearch;
+    if (repository == null) return;
+    if (enabled) {
+      final agreed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Collect a local research copy?'),
+          content: const Text('Optional and off by default. From now on, NAVI can store daily journal/audio activity, typing activity, and Beacon heart-rate summaries in an encrypted local repository. No journal text, recordings, transcripts, account IDs, or device IDs are included in the review packet. A random participant code and relative days preserve longitudinal links, so this is sensitive coded data—not anonymous data. Nothing is uploaded by this control. Pausing stops collection; deleting removes only this research copy. Apple Health, WHOOP, and Google measurements are not collected here yet.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enable local collection')),
+          ],
+        ),
+      );
+      if (agreed != true || !mounted) return;
+    }
+    setState(() => _localResearchBusy = true);
+    try {
+      await repository.setEnabled(enabled);
+      if (mounted) setState(() => _localResearchError = null);
+    } catch (_) {
+      if (mounted) setState(() => _localResearchError = 'Could not save local collection preference.');
+    } finally {
+      if (mounted) setState(() => _localResearchBusy = false);
+    }
+  }
+
+  Future<void> _reviewLocalResearch() async {
+    setState(() => _localResearchBusy = true);
+    try {
+      await widget.dataService?.collectLocalResearch();
+      final packet = _localResearch?.reviewPacket();
+      if (!mounted || packet == null) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Local collection verification'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${packet['record_count']} stored participant-days. Zero rows means no eligible local events have been collected.'),
+                const Text('Null means missing or not collected. Health-provider metrics are not connected yet. The data below is read back from the encrypted repository; it is not a sample packet.'),
+                const SizedBox(height: 12),
+                SelectableText(const JsonEncoder.withIndent('  ').convert(packet)),
+              ],
+            )),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _localResearchError = 'Collection failed. No successful collection is being claimed; retry after opening your local journal.');
+    } finally {
+      if (mounted) setState(() => _localResearchBusy = false);
+    }
+  }
+
+  Future<void> _deleteLocalResearch() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete local research copy?'),
+        content: const Text('Deletes these research summaries and their participant code, and turns local collection off. Your journals, recordings, and cloud data are unchanged.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete research copy')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _localResearchBusy = true);
+    try {
+      await _localResearch?.deleteResearchCopy();
+      if (mounted) setState(() => _localResearchError = null);
+    } catch (_) {
+      if (mounted) setState(() => _localResearchError = 'Could not delete the research copy.');
+    } finally {
+      if (mounted) setState(() => _localResearchBusy = false);
+    }
+  }
+
+  Widget _localResearchCard() => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Local research collection'),
+          subtitle: const Text('Optional encrypted summaries on this device. Separate from cloud research sharing.'),
+          value: _localResearch?.enabled ?? false,
+          onChanged: _localResearch == null || _localResearchBusy ? null : _setLocalResearch,
+        ),
+        Text('${_localResearch?.rowCount ?? 0} stored participant-days'),
+        if (_localResearch?.lastCollectedAt != null) Text('Last collection: ${_localResearch!.lastCollectedAt}'),
+        if (_localResearch == null) const Text('Sign in to open account-scoped local storage.'),
+        if (_localResearchError != null) Text(_localResearchError!),
+        Wrap(spacing: 8, children: [
+          OutlinedButton(onPressed: _localResearch == null || _localResearchBusy ? null : _reviewLocalResearch, child: const Text('Collect and verify locally')),
+          TextButton(onPressed: _localResearch == null || _localResearchBusy ? null : _deleteLocalResearch, child: const Text('Delete research copy')),
+        ]),
+      ]),
+    ),
+  );
+
+  Future<void> _previewAppleHealth() async {
+    setState(() {
+      _isLoading = true;
+      _syncingTracker = HealthTrackerProvider.appleHealth;
+      _statusMessage = null;
+    });
+    try {
+      final records = await AppleHealthService.readDailyMetrics();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Apple Health preview'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Last 30 days. This preview stays on your phone and is not saved or uploaded.',
+                ),
+                const SizedBox(height: 12),
+                if (records.isEmpty)
+                  const Text(
+                    'No readable samples found. This can mean there is no data or access was not shared. Apple does not reveal which read permissions were denied.',
+                  ),
+                for (final metric in const {
+                  'sleep_hours': 'Sleep',
+                  'sleep_efficiency': 'Sleep efficiency',
+                  'resting_hr': 'Resting heart rate',
+                  'hrv_sdnn': 'HRV (SDNN)',
+                }.entries)
+                  Text(
+                    '${metric.value}: ${records.where((r) => r[metric.key] != null).length} days',
+                  ),
+                if (records.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Observed dates: ${records.first['date']} to ${records.last['date']}',
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage =
+            'Apple Health could not be read. Unlock your iPhone and check Health access for NAVI. The installed build also needs HealthKit signing enabled.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _syncingTracker = null;
+        });
+      }
     }
   }
 
@@ -1342,6 +1529,40 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _healthTrackerCard(HealthTrackerProvider provider) {
+    if (provider == HealthTrackerProvider.appleHealth) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Apple Health',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppleHealthService.isSupported
+                    ? 'Preview sleep and heart metric coverage from your iPhone. Nothing is uploaded or saved by this preview.'
+                    : 'Apple Health is only available on iPhone.',
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: AppleHealthService.isSupported && !_isLoading
+                    ? _previewAppleHealth
+                    : null,
+                icon: const Icon(Icons.favorite_outline),
+                label: Text(
+                  _syncingTracker == provider
+                      ? 'Reading…'
+                      : 'Preview Apple Health',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final colorScheme = Theme.of(context).colorScheme;
     final status = _trackerStatuses[provider];
     final connected = status?.connected == true;
@@ -1673,6 +1894,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ],
                   ),
                 ),
+                _localResearchCard(),
                 SwitchListTile(
                   value: _researchDataSharingEnabled,
                   onChanged: (value) {
@@ -1682,7 +1904,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                   title: const Text('Research/data-sharing opt-in'),
                   subtitle: const Text(
-                    'Optional. Allows de-identified feature records to be sent for model improvement and potential long-term academic research.',
+                    'Separate cloud opt-in. Allows coded feature records to be uploaded for research. Coded longitudinal data is not anonymous.',
                   ),
                 ),
                 if (_researchDataSharingEnabled) ...[

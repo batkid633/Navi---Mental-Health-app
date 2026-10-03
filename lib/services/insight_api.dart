@@ -3,9 +3,15 @@ import 'package:http/http.dart' as http;
 import '../models/insight_trend.dart';
 import '../models/model_validation_report.dart';
 import '../config/backend_config.dart';
+import 'automatic_biometric_sync.dart';
 
 class InsightsApi {
   static Future<List<InsightTrend>> fetchTrends(int days) async {
+    final syncScope = AutomaticBiometricSync.scope;
+    await AutomaticBiometricSync.ensureFresh(syncScope);
+    if (syncScope != null && AutomaticBiometricSync.scope != syncScope) {
+      throw StateError('Account or sync settings changed');
+    }
     final uri = Uri.parse(
       '${BackendConfig.baseUrl}/insights/trends?days=$days',
     );

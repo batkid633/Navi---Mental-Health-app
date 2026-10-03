@@ -42,10 +42,22 @@ test/
 tests/
 *.test.py
 
-# Logs (keep runtime logs, exclude development logs)
+# Runtime logs must not be shipped in container images
 *.log
 
 # Environment files (these will be provided via GCP Secret Manager)
 .env
 .env.local
-.env.*.local
+.env.*
+
+# Private runtime state and exports (synthetic data/ fixtures remain included)
+logs/
+user_runtime_data/
+credentials/
+tokens/
+recovery_artifacts/
+local_research_exports/
+research_exports/
+*.p12
+*.p8
+*.mobileprovision

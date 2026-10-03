@@ -66,3 +66,11 @@ credentials/
 recovery_artifacts/
 /logs/*.jsonl
 /logs/*.csv
+
+# Local signing identities, device profiles, and research exports
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+/local_research_exports/
+/research_exports/

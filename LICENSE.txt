@@ -1,0 +1,75 @@
+NAVI Personal Noncommercial License
+Version 1.0
+
+Copyright (c) 2026 Cole Rivell. All rights reserved except as expressly granted
+below.
+
+1. Scope
+
+This license applies to original NAVI software source code and accompanying
+software documentation owned by Cole Rivell in this repository (the Software).
+It does not license third-party software, datasets, trained model artifacts,
+user data, credentials, names, logos, or trademarks. Separately licensed material
+remains subject to its own terms.
+
+2. Personal, noncommercial permission
+
+Cole Rivell grants you a nonexclusive permission to use, copy, study, and modify
+the Software for your own personal, noncommercial projects. You may share the
+Software or modifications as part of such a personal, noncommercial project,
+provided that you comply with the conditions below and give recipients this
+license for the NAVI-derived portions.
+
+This permission does not cover commercial use or organizational, institutional,
+or client projects. Any use outside the personal, noncommercial permission
+requires prior explicit written permission from Cole Rivell.
+
+3. Attribution and notices
+
+Retain this license and the copyright notice in copies and substantial portions
+of the Software. Include the following attribution in your project's README or
+other documentation distributed with it:
+
+    This project uses or is derived from NAVI by Cole Rivell.
+
+Clearly identify modifications you make. Do not imply that Cole Rivell endorses
+you, your modifications, or your project. You may not grant broader rights to the
+NAVI-derived portions than this license grants you.
+
+4. Commercial use requires permission
+
+Commercial use includes selling or licensing the Software or a derivative for
+payment, offering paid services using it, using it in work for a business or
+client, or using it in a revenue-generating product or service, including an
+advertising-supported product or service. Such use requires prior explicit
+written permission from Cole Rivell. Making source code public or charging no
+fee for a particular copy does not by itself make a commercial use permissible.
+
+5. No rights to data or services
+
+This license grants no access to NAVI accounts, backend services, production
+infrastructure, private data, or third-party APIs. It grants no permission to
+collect, disclose, or use another person's data.
+
+6. Termination
+
+The permissions granted by this license terminate if you violate its terms.
+Upon termination, stop using and distributing the Software unless Cole Rivell
+provides written permission to resume. Sections concerning ownership, excluded
+rights, warranty, and liability survive termination.
+
+7. Disclaimer of warranty and limitation of liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. TO THE EXTENT PERMITTED
+BY APPLICABLE LAW, IN NO EVENT SHALL COLE RIVELL OR OTHER COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+8. Other permissions
+
+For commercial use or any other use outside this license, obtain explicit
+written permission from Cole Rivell before proceeding. No additional permission
+is implied by silence or by public availability of the repository.

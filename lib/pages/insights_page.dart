@@ -17,7 +17,8 @@ class InsightsPage extends StatefulWidget {
   State<InsightsPage> createState() => _InsightsPageState();
 }
 
-class _InsightsPageState extends State<InsightsPage> {
+class _InsightsPageState extends State<InsightsPage>
+    with WidgetsBindingObserver {
   static const List<int> _windows = [1, 3, 7, 14];
 
   late Future<List<InsightTrend>> _trendsFuture;
@@ -26,7 +27,23 @@ class _InsightsPageState extends State<InsightsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _trendsFuture = _loadTrends(14);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        mounted &&
+        SettingsService.personalizedInsightsEnabled) {
+      _reloadTrends();
+    }
   }
 
   void _reloadTrends() {

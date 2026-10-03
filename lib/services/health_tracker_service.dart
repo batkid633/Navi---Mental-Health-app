@@ -130,6 +130,16 @@ class HealthTrackerService {
   static Future<HealthTrackerStatus> getStatus(
     HealthTrackerProvider provider,
   ) async {
+    if (provider == HealthTrackerProvider.appleHealth) {
+      return HealthTrackerStatus(
+        connected: false,
+        configured: AppleHealthService.isSupported,
+        platformNative: true,
+        message: AppleHealthService.isSupported
+            ? 'Apple Health access is managed on your iPhone.'
+            : 'Apple Health is only available on iPhone.',
+      );
+    }
     final uri = Uri.parse('${BackendConfig.baseUrl}${provider.statusPath}');
     final response = await http.get(
       uri,

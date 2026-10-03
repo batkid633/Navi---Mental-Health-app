@@ -1,5 +1,10 @@
 # Navi Personal
 
+Licensed for attributed personal, noncommercial projects under the custom
+[NAVI Personal Noncommercial License](LICENSE.txt). Commercial and other uses
+outside that grant require explicit written permission from Cole Rivell.
+This is a source-available license, not MIT.
+
 Navi Personal is a Flutter + FastAPI mental health journaling and self-insight app. It combines local-first journaling, Firebase-backed sync, sentiment analysis, audio reflection, WHOOP-informed feature pipelines, next-day mood prediction, LLM-assisted insights, and user evaluation feedback.
 
 Navi is currently an advanced MVP / beta-candidate project. It is not a clinical device, emergency service, diagnosis tool, or treatment system.

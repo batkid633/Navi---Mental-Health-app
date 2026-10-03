@@ -25,6 +25,9 @@ COPY app.py .
 COPY auth.py .
 COPY config.py .
 COPY analytics_ingestion.py .
+COPY biometric_normalization.py .
+COPY research_schema.py .
+COPY research_packets.py .
 COPY user_data.py .
 COPY fitbit_api.py .
 COPY whoop_api.py .

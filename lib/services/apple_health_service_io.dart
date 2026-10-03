@@ -13,7 +13,7 @@ class AppleHealthService {
 
   static const _types = AppleHealthNormalizer.types;
 
-  static Future<HealthTrackerSyncResult> syncDailyMetrics({
+  static Future<List<Map<String, dynamic>>> readDailyMetrics({
     int days = 30,
   }) async {
     if (!Platform.isIOS) {
@@ -28,14 +28,7 @@ class AppleHealthService {
       permissions: _types.map((_) => HealthDataAccess.READ).toList(),
     );
     if (!authorized) {
-      return HealthTrackerSyncResult(
-        provider: HealthTrackerProvider.appleHealth.id,
-        requestedDays: requestedDays,
-        fetched: 0,
-        saved: 0,
-        connected: false,
-        detail: 'Apple Health permission was not granted.',
-      );
+      throw StateError('Apple Health access request could not be completed.');
     }
 
     final now = DateTime.now();
@@ -56,6 +49,15 @@ class AppleHealthService {
         )
         .toList();
 
+    return records;
+  }
+
+  // Explicit cloud path retained separately from the device-only preview.
+  static Future<HealthTrackerSyncResult> syncDailyMetrics({
+    int days = 30,
+  }) async {
+    final requestedDays = days.clamp(1, 90);
+    final records = await readDailyMetrics(days: requestedDays);
     final response = await http
         .post(
           Uri.parse('${BackendConfig.baseUrl}/apple-health/sync'),

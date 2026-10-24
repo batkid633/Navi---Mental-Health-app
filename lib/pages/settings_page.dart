@@ -1967,7 +1967,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     try {
                       final repository = await widget.dataService
                           ?.betaSurveyRepository();
-                      if (!mounted) return;
+                      if (!mounted || !context.mounted) return;
                       if (repository == null) {
                         setState(
                           () => _statusMessage =
@@ -1982,11 +1982,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       );
                     } catch (_) {
-                      if (mounted)
+                      if (mounted) {
                         setState(
                           () => _statusMessage =
                               'Could not open local beta feedback.',
                         );
+                      }
                     }
                   },
                 ),

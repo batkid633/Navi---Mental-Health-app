@@ -22,6 +22,12 @@ class BetaSurveyRepository {
 
   bool get enabled => box.get('enabled', defaultValue: true) == true;
   bool get due => enabled && !box.containsKey('day:$today');
+  Map<String, dynamic>? responseFor(String day) {
+    final value = box.get('day:$day');
+    if (value is! Map || value['status'] != 'completed') return null;
+    return Map<String, dynamic>.from(value);
+  }
+
   Future<void> setEnabled(bool enabled) async {
     await box.put('enabled', enabled);
     await box.flush();
@@ -42,8 +48,9 @@ class BetaSurveyRepository {
   }) async {
     if (day != today) throw StateError('The day changed. Reopen the survey.');
     for (final rating in [ease, helpfulness]) {
-      if (rating != null && (rating < 1 || rating > 5))
+      if (rating != null && (rating < 1 || rating > 5)) {
         throw ArgumentError('Ratings must be 1–5');
+      }
     }
     if (!issues.contains(issue)) throw ArgumentError('Unknown issue');
     await box.put('day:$day', {
@@ -98,7 +105,7 @@ class BetaSurveyRepository {
 
   String aggregateCsv() {
     final stats = statistics;
-    final lines = ['metric,category,count,mean'];
+    final lines = ['metric,category,count,mean', 'schema_version,$version,,'];
     for (final field in ['completed', 'skipped', 'recorded_days']) {
       lines.add('$field,total,${stats[field]},');
     }

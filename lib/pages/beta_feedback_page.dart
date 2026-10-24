@@ -25,6 +25,15 @@ class _SurveyDialogState extends State<_SurveyDialog> {
   bool busy = false;
   String? error;
   late final String day = widget.repository.today;
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.repository.responseFor(day);
+    ease = existing?['ease'] as int?;
+    helpfulness = existing?['helpfulness'] as int?;
+    issue = existing?['issue'] as String? ?? 'none';
+  }
+
   Future<void> finish(bool submit) async {
     setState(() {
       busy = true;
@@ -43,12 +52,13 @@ class _SurveyDialogState extends State<_SurveyDialog> {
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           busy = false;
           error =
               'Could not save. If the date changed, skip and reopen from Settings.';
         });
+      }
     }
   }
 

@@ -131,8 +131,9 @@ class _NaviHomeState extends State<NaviHome> with WidgetsBindingObserver {
       if (!mounted ||
           repository == null ||
           !repository.due ||
-          ModalRoute.of(context)?.isCurrent != true)
+          ModalRoute.of(context)?.isCurrent != true) {
         return;
+      }
       final day = repository.today;
       await showBetaSurvey(context, repository);
       await repository.skip(

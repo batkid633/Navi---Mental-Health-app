@@ -60,7 +60,11 @@ class _AuthGateState extends State<AuthGate> {
               },
             );
           }
-          return NaviHome(dataService: _dataService, authService: _authService);
+          return NaviHome(
+            key: ValueKey(user.uid),
+            dataService: _dataService,
+            authService: _authService,
+          );
         }
 
         if (_localTestMode) {

@@ -18,6 +18,7 @@ import '../services/navi_beacon_ble_service.dart';
 import '../services/notification_service.dart';
 import '../utils/data_export_saver.dart';
 import 'legal_documents_page.dart';
+import 'beta_feedback_page.dart';
 import '../widgets/crisis_resources_card.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -373,10 +374,18 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Collect a local research copy?'),
-          content: const Text('Optional and off by default. From now on, NAVI can store daily journal/audio activity, typing activity, and Beacon heart-rate summaries in an encrypted local repository. No journal text, recordings, transcripts, account IDs, or device IDs are included in the review packet. A random participant code and relative days preserve longitudinal links, so this is sensitive coded data—not anonymous data. Nothing is uploaded by this control. Pausing stops collection; deleting removes only this research copy. Apple Health, WHOOP, and Google measurements are not collected here yet.'),
+          content: const Text(
+            'Optional and off by default. From now on, NAVI can store daily journal/audio activity, typing activity, and Beacon heart-rate summaries in an encrypted local repository. No journal text, recordings, transcripts, account IDs, or device IDs are included in the review packet. A random participant code and relative days preserve longitudinal links, so this is sensitive coded data—not anonymous data. Nothing is uploaded by this control. Pausing stops collection; deleting removes only this research copy. Apple Health, WHOOP, and Google measurements are not collected here yet.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enable local collection')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Enable local collection'),
+            ),
           ],
         ),
       );
@@ -387,7 +396,11 @@ class _SettingsPageState extends State<SettingsPage> {
       await repository.setEnabled(enabled);
       if (mounted) setState(() => _localResearchError = null);
     } catch (_) {
-      if (mounted) setState(() => _localResearchError = 'Could not save local collection preference.');
+      if (mounted)
+        setState(
+          () => _localResearchError =
+              'Could not save local collection preference.',
+        );
     } finally {
       if (mounted) setState(() => _localResearchBusy = false);
     }
@@ -405,22 +418,39 @@ class _SettingsPageState extends State<SettingsPage> {
           title: const Text('Local collection verification'),
           content: SizedBox(
             width: double.maxFinite,
-            child: SingleChildScrollView(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${packet['record_count']} stored participant-days. Zero rows means no eligible local events have been collected.'),
-                const Text('Null means missing or not collected. Health-provider metrics are not connected yet. The data below is read back from the encrypted repository; it is not a sample packet.'),
-                const SizedBox(height: 12),
-                SelectableText(const JsonEncoder.withIndent('  ').convert(packet)),
-              ],
-            )),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${packet['record_count']} stored participant-days. Zero rows means no eligible local events have been collected.',
+                  ),
+                  const Text(
+                    'Null means missing or not collected. Health-provider metrics are not connected yet. The data below is read back from the encrypted repository; it is not a sample packet.',
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    const JsonEncoder.withIndent('  ').convert(packet),
+                  ),
+                ],
+              ),
+            ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
+            ),
+          ],
         ),
       );
     } catch (_) {
-      if (mounted) setState(() => _localResearchError = 'Collection failed. No successful collection is being claimed; retry after opening your local journal.');
+      if (mounted)
+        setState(
+          () => _localResearchError =
+              'Collection failed. No successful collection is being claimed; retry after opening your local journal.',
+        );
     } finally {
       if (mounted) setState(() => _localResearchBusy = false);
     }
@@ -431,10 +461,18 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete local research copy?'),
-        content: const Text('Deletes these research summaries and their participant code, and turns local collection off. Your journals, recordings, and cloud data are unchanged.'),
+        content: const Text(
+          'Deletes these research summaries and their participant code, and turns local collection off. Your journals, recordings, and cloud data are unchanged.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete research copy')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete research copy'),
+          ),
         ],
       ),
     );
@@ -444,7 +482,10 @@ class _SettingsPageState extends State<SettingsPage> {
       await _localResearch?.deleteResearchCopy();
       if (mounted) setState(() => _localResearchError = null);
     } catch (_) {
-      if (mounted) setState(() => _localResearchError = 'Could not delete the research copy.');
+      if (mounted)
+        setState(
+          () => _localResearchError = 'Could not delete the research copy.',
+        );
     } finally {
       if (mounted) setState(() => _localResearchBusy = false);
     }
@@ -453,23 +494,45 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _localResearchCard() => Card(
     child: Padding(
       padding: const EdgeInsets.all(12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Local research collection'),
-          subtitle: const Text('Optional encrypted summaries on this device. Separate from cloud research sharing.'),
-          value: _localResearch?.enabled ?? false,
-          onChanged: _localResearch == null || _localResearchBusy ? null : _setLocalResearch,
-        ),
-        Text('${_localResearch?.rowCount ?? 0} stored participant-days'),
-        if (_localResearch?.lastCollectedAt != null) Text('Last collection: ${_localResearch!.lastCollectedAt}'),
-        if (_localResearch == null) const Text('Sign in to open account-scoped local storage.'),
-        if (_localResearchError != null) Text(_localResearchError!),
-        Wrap(spacing: 8, children: [
-          OutlinedButton(onPressed: _localResearch == null || _localResearchBusy ? null : _reviewLocalResearch, child: const Text('Collect and verify locally')),
-          TextButton(onPressed: _localResearch == null || _localResearchBusy ? null : _deleteLocalResearch, child: const Text('Delete research copy')),
-        ]),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Local research collection'),
+            subtitle: const Text(
+              'Optional encrypted summaries on this device. Separate from cloud research sharing.',
+            ),
+            value: _localResearch?.enabled ?? false,
+            onChanged: _localResearch == null || _localResearchBusy
+                ? null
+                : _setLocalResearch,
+          ),
+          Text('${_localResearch?.rowCount ?? 0} stored participant-days'),
+          if (_localResearch?.lastCollectedAt != null)
+            Text('Last collection: ${_localResearch!.lastCollectedAt}'),
+          if (_localResearch == null)
+            const Text('Sign in to open account-scoped local storage.'),
+          if (_localResearchError != null) Text(_localResearchError!),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: _localResearch == null || _localResearchBusy
+                    ? null
+                    : _reviewLocalResearch,
+                child: const Text('Collect and verify locally'),
+              ),
+              TextButton(
+                onPressed: _localResearch == null || _localResearchBusy
+                    ? null
+                    : _deleteLocalResearch,
+                child: const Text('Delete research copy'),
+              ),
+            ],
+          ),
+        ],
+      ),
     ),
   );
 
@@ -1893,6 +1956,39 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ],
                   ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.poll_outlined),
+                  title: const Text('Daily beta feedback & statistics'),
+                  subtitle: const Text(
+                    'Local survey, rating charts, and aggregate CSV',
+                  ),
+                  onTap: () async {
+                    try {
+                      final repository = await widget.dataService
+                          ?.betaSurveyRepository();
+                      if (!mounted) return;
+                      if (repository == null) {
+                        setState(
+                          () => _statusMessage =
+                              'Sign in to use local beta feedback.',
+                        );
+                        return;
+                      }
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BetaFeedbackPage(repository: repository),
+                        ),
+                      );
+                    } catch (_) {
+                      if (mounted)
+                        setState(
+                          () => _statusMessage =
+                              'Could not open local beta feedback.',
+                        );
+                    }
+                  },
                 ),
                 _localResearchCard(),
                 SwitchListTile(

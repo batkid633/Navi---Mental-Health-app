@@ -14,6 +14,7 @@ import 'pages/today_page.dart';
 import 'pages/audio_page.dart';
 import 'pages/insights_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/beta_feedback_page.dart';
 import 'services/auth_service.dart';
 import 'services/analytics_service.dart';
 import 'services/data_service.dart';
@@ -104,19 +105,55 @@ class NaviHome extends StatefulWidget {
   State<NaviHome> createState() => _NaviHomeState();
 }
 
-class _NaviHomeState extends State<NaviHome> {
+class _NaviHomeState extends State<NaviHome> with WidgetsBindingObserver {
+  bool _checkingSurvey = false;
   int _tabIndex = 0;
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerSurvey());
     _pages = [
       TodayPage(dataService: widget.dataService),
       JournalPage(dataService: widget.dataService),
       AudioPage(dataService: widget.dataService),
       InsightsPage(dataService: widget.dataService),
     ];
+  }
+
+  Future<void> _offerSurvey() async {
+    if (_checkingSurvey || !mounted) return;
+    _checkingSurvey = true;
+    try {
+      final repository = await widget.dataService.betaSurveyRepository();
+      if (!mounted ||
+          repository == null ||
+          !repository.due ||
+          ModalRoute.of(context)?.isCurrent != true)
+        return;
+      final day = repository.today;
+      await showBetaSurvey(context, repository);
+      await repository.skip(
+        day,
+      ); // System-back dismissal also counts as a skip.
+    } catch (_) {
+      // Optional feedback must never block access to the app.
+    } finally {
+      _checkingSurvey = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _offerSurvey();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override

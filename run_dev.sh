@@ -1,4 +1,6 @@
 #!/bin/bash
+# Legacy standalone workflow: contacts WHOOP and can modify local training data/models.
+# Not required for normal NAVI app builds or iPhone installation.
 set -e  # stop on error
 
 echo "=== Navi Dev Pipeline Starting ==="
@@ -39,11 +41,9 @@ echo "⚠️  WiFi SETUP INSTRUCTIONS:"
 echo "1. Find your computer's IP address:"
 echo "   - Windows PowerShell: ipconfig | grep IPv4"
 echo "   - Mac Terminal: ifconfig | grep inet"
-echo "2. Open lib/config/backend_config.dart"
-echo "3. Set useWiFi = true"
-echo "4. Set wiFiIP = \"YOUR_IP_ADDRESS\" (e.g., 192.168.1.100)"
-echo "5. Make sure iPhone is on same WiFi as this computer"
-echo "6. Run app with 'flutter run'"
+echo "2. Configure the backend URL in NAVI Settings."
+echo "3. Make sure iPhone is on same WiFi as this computer"
+echo "4. Run app with 'flutter run'"
 echo ""
 cd backend
 python -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload &

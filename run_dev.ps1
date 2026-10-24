@@ -1,3 +1,5 @@
+# Legacy standalone workflow: contacts WHOOP and can modify local training data/models.
+# Not required for normal NAVI app builds or iPhone installation.
 # Run Development Pipeline - Windows PowerShell Version
 # Usage: .\run_dev.ps1 [--retrain]
 
@@ -44,11 +46,9 @@ Write-Host "⚠️  WiFi SETUP INSTRUCTIONS:" -ForegroundColor Cyan
 Write-Host "1. Find your computer's IP address:"
 Write-Host "   - Windows PowerShell: ipconfig | grep IPv4"
 Write-Host "   - Mac Terminal: ifconfig | grep inet"
-Write-Host "2. Open lib/config/backend_config.dart"
-Write-Host "3. Set useWiFi = true"
-Write-Host "4. Set wiFiIP = ""YOUR_IP_ADDRESS"" (e.g., 192.168.1.100)"
-Write-Host "5. Make sure iPhone is on same WiFi as this computer"
-Write-Host "6. Run app with 'flutter run'"
+Write-Host "2. Configure the backend URL in NAVI Settings (http://YOUR_IP_ADDRESS:8000)."
+Write-Host "3. Make sure iPhone is on same WiFi as this computer"
+Write-Host "4. Run app with 'flutter run'"
 Write-Host ""
 
 Push-Location backend

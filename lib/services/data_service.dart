@@ -17,6 +17,7 @@ import 'sentiment_service.dart';
 import 'settings_service.dart';
 import 'encryption_service.dart';
 import 'local_research_repository.dart';
+import 'beta_survey_repository.dart';
 
 class DataService {
   static const _sharedJournalBoxName = 'journal_shared';
@@ -38,12 +39,27 @@ class DataService {
   bool _beaconInitialized = false;
   String? _accountCloudKeyInitializedForUid;
 
+  Future<BetaSurveyRepository?> betaSurveyRepository() async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) return null;
+    final box = await Hive.openBox<dynamic>(
+      'beta_survey_secure_$uid',
+      encryptionCipher: HiveAesCipher(
+        await _encryptionService.hiveKeyForUser(uid),
+      ),
+    );
+    if (_currentUserId != uid) return null;
+    return BetaSurveyRepository(box);
+  }
+
   Future<LocalResearchRepository?> localResearchRepository() async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) return null;
     final box = await Hive.openBox<dynamic>(
       'local_research_secure_$uid',
-      encryptionCipher: HiveAesCipher(await _encryptionService.hiveKeyForUser(uid)),
+      encryptionCipher: HiveAesCipher(
+        await _encryptionService.hiveKeyForUser(uid),
+      ),
     );
     return LocalResearchRepository(box);
   }
@@ -53,19 +69,33 @@ class DataService {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) return;
     final repository = await localResearchRepository();
-    if (repository == null || !repository.enabled || _currentUserId != uid) return;
+    if (repository == null || !repository.enabled || _currentUserId != uid)
+      return;
     final key = await _encryptionService.hiveKeyForUser(uid);
     Future<Iterable<T>?> localValues<T>(String name) async {
       if (!await Hive.boxExists(name)) return null;
-      final box = await Hive.openBox<T>(name, encryptionCipher: HiveAesCipher(key));
+      final box = await Hive.openBox<T>(
+        name,
+        encryptionCipher: HiveAesCipher(key),
+      );
       return box.values.toList();
     }
+
     final journals = await localValues<JournalEntry>('journal_secure_$uid');
     final audio = await localValues<AudioEntry>('audio_secure_$uid');
-    final keyboard = await localValues<KeyboardSessionEntry>('keyboard_sessions_secure_$uid');
-    final beacon = await localValues<NaviBeaconSample>('navi_beacon_samples_secure_$uid');
+    final keyboard = await localValues<KeyboardSessionEntry>(
+      'keyboard_sessions_secure_$uid',
+    );
+    final beacon = await localValues<NaviBeaconSample>(
+      'navi_beacon_samples_secure_$uid',
+    );
     if (_currentUserId != uid) return;
-    await repository.collect(journals: journals, audio: audio, keyboard: keyboard, beacon: beacon);
+    await repository.collect(
+      journals: journals,
+      audio: audio,
+      keyboard: keyboard,
+      beacon: beacon,
+    );
   }
 
   Future<void> _tryCollectLocalResearch() async {
@@ -73,7 +103,9 @@ class DataService {
       await collectLocalResearch();
     } catch (_) {
       // Never interrupt journaling or log sensitive research records.
-      debugPrint('[DataService] Local research collection failed; retry from Settings.');
+      debugPrint(
+        '[DataService] Local research collection failed; retry from Settings.',
+      );
     }
   }
 
@@ -105,9 +137,7 @@ class DataService {
     final boxName = _currentUserId == null
         ? '${_sharedJournalBoxName}_secure'
         : 'journal_secure_$_currentUserId';
-    debugPrint(
-      '[DataService] Opening encrypted journal storage',
-    );
+    debugPrint('[DataService] Opening encrypted journal storage');
     final journalBox = await Hive.openBox<JournalEntry>(
       boxName,
       encryptionCipher: HiveAesCipher(
@@ -973,6 +1003,7 @@ class DataService {
   }
 
   Future<void> deleteMyData() async {
+    await (await betaSurveyRepository())?.deleteResponses();
     await (await localResearchRepository())?.deleteResearchCopy();
     final uid = _currentUserId;
     if (uid != null && uid.isNotEmpty) {

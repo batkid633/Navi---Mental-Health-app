@@ -1,4 +1,6 @@
 #!/bin/bash
+# Legacy standalone workflow: contacts WHOOP and can modify local training data/models.
+# Not required for normal NAVI app builds or iPhone installation.
 set -e
 
 echo "🔄 Syncing WHOOP data..."

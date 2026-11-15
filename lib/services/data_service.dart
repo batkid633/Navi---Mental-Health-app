@@ -955,27 +955,42 @@ class DataService {
         await _ensureAccountCloudKey();
         cloudData = await _cloudPersistence.exportUserData(uid);
       } catch (e) {
-        cloudData = {'error': e.toString()};
+        cloudData = {'error': 'Cloud export unavailable', 'complete': false};
       }
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('${BackendConfig.baseUrl}/data/export'),
-        headers: await BackendConfig.getAuthHeaders(),
-      );
+      final response = await http
+          .get(
+            Uri.parse('${BackendConfig.baseUrl}/data/export'),
+            headers: await BackendConfig.getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 30));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         backendData = jsonDecode(response.body) as Map<String, dynamic>;
       } else {
         backendData = {'error': 'Backend returned ${response.statusCode}'};
       }
     } catch (e) {
-      backendData = {'error': e.toString()};
+      backendData = {'error': 'Backend export unavailable', 'complete': false};
     }
 
+    if (_currentUserId != uid) {
+      throw StateError('Account changed during export. Please try again.');
+    }
     return {
       'format': 'navi-personal-data-export-v1',
       'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'exportStatus': {
+        'cloud': cloudData == null
+            ? 'not_requested'
+            : (cloudData['error'] != null || cloudData['complete'] == false
+                  ? 'partial_or_failed'
+                  : 'completed'),
+        'backend': backendData['error'] != null
+            ? 'partial_or_failed'
+            : 'returned_unverified',
+      },
       'userId': uid,
       'settings': SettingsService.privacyConsentSnapshot(),
       'local': {

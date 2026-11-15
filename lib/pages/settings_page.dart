@@ -784,16 +784,30 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       await AnalyticsService.track('data_export_requested');
       final exportJson = await dataService.exportMyDataJson();
+      final payload = jsonDecode(exportJson) as Map<String, dynamic>;
+      final cloud = payload['cloud'];
+      final backend = payload['backend'];
+      final partial =
+          cloud == null ||
+          (cloud is Map &&
+              (cloud['error'] != null || cloud['complete'] == false)) ||
+          backend == null ||
+          (backend is Map && backend['error'] != null);
+      final warning = partial
+          ? ' Partial export: some remote data was unavailable. See export status before using it for analysis.'
+          : '';
       final savedPath = await saveDataExport(exportJson);
       await Clipboard.setData(ClipboardData(text: exportJson));
       if (!mounted) return;
       setState(() {
         _statusMessage = savedPath == null
-            ? 'Data export copied to clipboard.'
-            : 'Data export saved to $savedPath and copied to clipboard.';
+            ? 'Data export copied to clipboard.$warning'
+            : 'Data export saved to $savedPath and copied to clipboard.$warning';
       });
-      await AnalyticsService.track('data_export_succeeded');
-      await _showExportPreview(exportJson);
+      await AnalyticsService.track(
+        partial ? 'data_export_partial' : 'data_export_succeeded',
+      );
+      await _showExportPreview(exportJson, partial: partial);
     } catch (error) {
       await AnalyticsService.track('data_export_failed');
       if (!mounted) return;
@@ -809,11 +823,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _showExportPreview(String exportJson) {
+  Future<void> _showExportPreview(String exportJson, {bool partial = false}) {
     return showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Your data export'),
+        title: Text(
+          partial
+              ? 'Partial data export — some sources unavailable'
+              : 'Your data export',
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(

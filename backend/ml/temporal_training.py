@@ -1,6 +1,7 @@
 """Pure training helpers: no dataset reads, artifact writes, or network access."""
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
@@ -25,16 +26,19 @@ def purged_folds(dates, target_dates):
     return folds
 
 
-def fit_temporal_model(train_x, train_y, dates, target_dates):
+def fit_temporal_model(train_x, train_y, dates, target_dates, *, compare_pca=False):
     if len(train_x) != len(train_y) or len(train_x) != len(dates):
         raise ValueError('Features, labels and dates must align')
     x = train_x.replace([np.inf, -np.inf], np.nan)
     folds = purged_folds(dates, target_dates)
-    pipeline = Pipeline([
+    steps = [
         ('impute', SimpleImputer(strategy='median', keep_empty_features=True)),
         ('scale', StandardScaler()),
         ('model', Ridge(alpha=1.0)),
-    ])
+    ]
+    if compare_pca:
+        steps.insert(2, ('reduce', 'passthrough'))
+    pipeline = Pipeline(steps)
     # With insufficient temporal evidence, use a fixed regularized baseline;
     # do not substitute shuffled or leave-one-out tuning.
     if len(folds) < 2:
@@ -47,6 +51,11 @@ def fit_temporal_model(train_x, train_y, dates, target_dates):
         candidates.append({'model': [ElasticNet(max_iter=20000, random_state=42)],
                            'model__alpha': [0.01, 0.1, 1.0],
                            'model__l1_ratio': [0.1, 0.5, 0.9]})
+    if compare_pca:
+        # Reduction is fitted inside each temporal fold, never on held-out data.
+        # Keep the unreduced candidate; PCA is not presumed beneficial.
+        candidates.append({'reduce': [PCA(n_components=0.9, svd_solver='full')],
+                           'model': [Ridge()], 'model__alpha': [1.0, 10.0, 100.0]})
     search = GridSearchCV(pipeline, candidates, cv=folds,
                           scoring='neg_mean_absolute_error', refit=True,
                           n_jobs=1, error_score='raise')

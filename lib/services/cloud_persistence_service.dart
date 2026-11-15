@@ -1,3 +1,4 @@
+import 'export_sections.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -504,58 +505,49 @@ class CloudPersistenceService {
   }
 
   Future<Map<String, dynamic>> exportUserData(String uid) async {
-    final profileSnapshot = await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('profile')
-        .get();
-    final featureSnapshot = await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('backend_ml_features')
-        .get();
-    final analyticsSnapshot = await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('daily_analytics')
-        .get();
-    final audioFiles = await _listStorageItems('users/$uid/audio');
-
-    return {
-      'firestore': {
-        'journalEntries': (await loadJournalEntries(
-          uid,
-        )).map((entry) => entry.toJson()).toList(),
-        'audioEntries': (await loadAudioEntries(
-          uid,
-        )).map((entry) => entry.toJson()).toList(),
-        'evaluationFeedback': (await loadEvaluationFeedback(
-          uid,
-        )).map((feedback) => feedback.toJson()).toList(),
-        'keyboardSessions': (await loadKeyboardSessions(
-          uid,
-        )).map((session) => session.toJson()).toList(),
-        'profile': {
-          for (final doc in profileSnapshot.docs)
+    final sections = await collectExportSections({
+      'journalEntries': () async =>
+          (await loadJournalEntries(uid)).map((e) => e.toJson()).toList(),
+      'audioEntries': () async =>
+          (await loadAudioEntries(uid)).map((e) => e.toJson()).toList(),
+      'evaluationFeedback': () async =>
+          (await loadEvaluationFeedback(uid)).map((e) => e.toJson()).toList(),
+      'keyboardSessions': () async =>
+          (await loadKeyboardSessions(uid)).map((e) => e.toJson()).toList(),
+      'profile': () async {
+        final snapshot = await _firestore
+            .collection('users')
+            .doc(uid)
+            .collection('profile')
+            .get();
+        return {
+          for (final doc in snapshot.docs)
             doc.id: doc.id == 'account_cloud_key'
                 ? _redactedAccountCloudKey(doc.data())
                 : _jsonSafe(doc.data()),
-        },
-        'notificationDevices': await _exportCollection(
-          _notificationDevicesCollection(uid),
-        ),
-        'consentRecords': await _exportCollection(
-          _consentRecordsCollection(uid),
-        ),
-        'backendMlFeatures': {
-          for (final doc in featureSnapshot.docs) doc.id: _jsonSafe(doc.data()),
-        },
-        'dailyAnalytics': {
-          for (final doc in analyticsSnapshot.docs)
-            doc.id: _jsonSafe(doc.data()),
-        },
+        };
       },
-      'storage': {'audioFiles': audioFiles},
+      'notificationDevices': () =>
+          _exportCollection(_notificationDevicesCollection(uid)),
+      'consentRecords': () => _exportCollection(_consentRecordsCollection(uid)),
+      'backendMlFeatures': () => _exportCollection(
+        _firestore
+            .collection('users')
+            .doc(uid)
+            .collection('backend_ml_features'),
+      ),
+      'dailyAnalytics': () => _exportCollection(
+        _firestore.collection('users').doc(uid).collection('daily_analytics'),
+      ),
+      'audioFiles': () => _listStorageItems('users/$uid/audio'),
+    });
+    final data = Map<String, dynamic>.from(sections['data'] as Map);
+    final audioFiles = data.remove('audioFiles');
+    return {
+      'firestore': data,
+      'storage': {'audioFiles': ?audioFiles},
+      'errors': sections['errors'],
+      'complete': sections['complete'],
     };
   }
 

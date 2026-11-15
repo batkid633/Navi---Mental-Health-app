@@ -7,6 +7,7 @@ import '../services/insight_api.dart';
 import '../services/insights_service.dart';
 import '../services/settings_service.dart';
 import '../widgets/mood_trend_chart.dart';
+import '../widgets/longitudinal_line_graph.dart';
 
 class InsightsPage extends StatefulWidget {
   final DataService dataService;
@@ -23,6 +24,7 @@ class _InsightsPageState extends State<InsightsPage>
 
   late Future<List<InsightTrend>> _trendsFuture;
   int _selectedWindow = 14;
+  bool _usingLocalTrends = false;
 
   @override
   void initState() {
@@ -97,6 +99,17 @@ class _InsightsPageState extends State<InsightsPage>
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              Text(
+                _usingLocalTrends
+                    ? 'Source: local journal fallback; wearable data unavailable here.'
+                    : 'Source: backend summaries; freshness depends on successful syncing.',
+              ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'Sentiment measures journal wording (−1 to +1), not overall mental health. It does not combine audio or wearable measurements. Body data availability is reported separately. Windows count recorded observations, which may span more calendar days.',
+                ),
+              ),
               _InsightOverviewCard(
                 latest: trends.last,
                 summaries: summaries,
@@ -115,6 +128,22 @@ class _InsightsPageState extends State<InsightsPage>
               _UnlockProgressCard(totalDays: trends.length),
               _SelectedWindowCard(summary: selectedSummary),
               MoodTrendGraph(trends: visibleTrends),
+              if (visibleTrends.any((t) => t.hrv != null))
+                LongitudinalLineGraph(
+                  trends: visibleTrends,
+                  selector: (t) => t.hrv,
+                  title: 'HRV RMSSD · rolling mean (7 observations)',
+                  yAxisLabel: 'Milliseconds',
+                  color: Colors.purple,
+                ),
+              if (visibleTrends.any((t) => t.sleepVar != null))
+                LongitudinalLineGraph(
+                  trends: visibleTrends,
+                  selector: (t) => t.sleepVar,
+                  title: 'Sleep duration variability (7 observations)',
+                  yAxisLabel: 'Standard deviation · hours',
+                  color: Colors.blue,
+                ),
               _WindowSummaryTable(
                 summaries: summaries,
                 selectedWindow: selectedSummary.days,
@@ -134,6 +163,7 @@ class _InsightsPageState extends State<InsightsPage>
   Future<List<InsightTrend>> _loadTrends(int days) async {
     try {
       final trends = await InsightsApi.fetchTrends(days);
+      _usingLocalTrends = false;
       await AnalyticsService.track(
         'insights_loaded',
         properties: {
@@ -144,6 +174,7 @@ class _InsightsPageState extends State<InsightsPage>
       );
       return trends;
     } catch (_) {
+      _usingLocalTrends = true;
       await AnalyticsService.track(
         'insights_backend_failed',
         properties: {'days': days},
@@ -222,9 +253,10 @@ class _InsightsPageState extends State<InsightsPage>
 
       final first = window.first;
       final latest = window.last;
-      final double? delta = window.length == 1
+      final double? delta =
+          window.length == 1 || latest.mood == null || first.mood == null
           ? null
-          : latest.mood - first.mood;
+          : latest.mood! - first.mood!;
       final volatilityValues = window
           .map((trend) => trend.volatility)
           .whereType<double>()
@@ -240,11 +272,15 @@ class _InsightsPageState extends State<InsightsPage>
         days: days,
         unlocked: true,
         direction: delta == null
-            ? _moodLabel(latest.mood)
+            ? (latest.mood == null
+                  ? 'No journal sentiment'
+                  : _moodLabel(latest.mood!))
             : _directionLabel(delta),
         delta: delta,
         volatility: avgVolatility,
-        dataUsed: bodyDays > 0 ? 'Journal + body' : 'Journal',
+        dataUsed: bodyDays > 0
+            ? 'Journal sentiment; body data available'
+            : 'Journal sentiment only',
         signalStrength: _signalStrength(
           days: days,
           bodyDays: bodyDays,
@@ -393,7 +429,7 @@ class _InsightOverviewCard extends StatelessWidget {
               children: [
                 _OverviewChip(
                   icon: Icons.mood,
-                  label: 'Mood',
+                  label: 'Journal sentiment',
                   value: _formatMood(latest.mood),
                 ),
                 _OverviewChip(
@@ -408,7 +444,7 @@ class _InsightOverviewCard extends StatelessWidget {
                       ? Icons.favorite_outline
                       : Icons.edit_note_outlined,
                   label: 'Data',
-                  value: bodyEnabled ? 'Journal + body' : 'Journal',
+                  value: bodyEnabled ? 'Body data available' : 'Journal only',
                 ),
               ],
             ),
@@ -418,7 +454,8 @@ class _InsightOverviewCard extends StatelessWidget {
     );
   }
 
-  String _formatMood(double value) {
+  String _formatMood(double? value) {
+    if (value == null) return 'No journal sentiment';
     if (value >= 0.35) return 'Positive';
     if (value >= 0.10) return 'Slightly positive';
     if (value > -0.10) return 'Neutral';

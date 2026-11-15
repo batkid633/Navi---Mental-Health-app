@@ -12,7 +12,7 @@ class MoodTrendGraph extends StatelessWidget {
     return LongitudinalLineGraph(
       trends: trends,
       selector: (t) => t.mood,
-      title: "Mood Trend",
+      title: "Journal text sentiment",
       color: Colors.green,
       minY: -1,
       maxY: 1,

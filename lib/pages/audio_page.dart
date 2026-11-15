@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../config/backend_config.dart';
+import '../widgets/audio_analysis_consent.dart';
 import '../models/audio_entry.dart';
 import '../models/sync_status.dart';
 import '../services/analytics_service.dart';
@@ -366,6 +369,7 @@ class _AudioPageState extends State<AudioPage> {
   }
 
   void _showSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
@@ -407,25 +411,48 @@ class _AudioPageState extends State<AudioPage> {
   }
 
   Future<void> _analyzeAudio(AudioEntry audioEntry) async {
+    if (_isAnalyzing) return;
     setState(() {
       _isAnalyzing = true;
-      _lastAnalysisEntry = audioEntry;
     });
 
     try {
+      final endpoint = Uri.parse('${BackendConfig.baseUrl}/audio/analyze');
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final consent = await requestAudioAnalysisConsent(context, endpoint);
+      if (!mounted || !consent) return;
+      if (uid == null || FirebaseAuth.instance.currentUser?.uid != uid) {
+        _showSnackBar('Sign in again before analyzing this recording.');
+        return;
+      }
+      setState(() {
+        _lastAnalysisEntry = audioEntry;
+        _lastAnalysis = null;
+      });
       await AnalyticsService.track(
         'audio_analysis_started',
         properties: {'mode': audioEntry.mode},
       );
-      final file = kIsWeb ? audioEntry.filePath : getFile(audioEntry.filePath);
       final analysis = await AudioAnalysisService.analyzeAudio(
-        file,
+        audioEntry.filePath,
         mode: audioEntry.mode,
+        consentGranted: consent,
+        endpoint: endpoint,
+        authHeaders: () async {
+          if (FirebaseAuth.instance.currentUser?.uid != uid) {
+            throw StateError('Account changed');
+          }
+          final headers = await BackendConfig.getAuthHeaders();
+          if (FirebaseAuth.instance.currentUser?.uid != uid) {
+            throw StateError('Account changed');
+          }
+          return headers;
+        },
       );
 
+      if (!mounted || FirebaseAuth.instance.currentUser?.uid != uid) return;
       setState(() {
         _lastAnalysis = analysis;
-        _isAnalyzing = false;
       });
 
       if (analysis.containsKey('error')) {
@@ -437,7 +464,13 @@ class _AudioPageState extends State<AudioPage> {
       } else {
         final moodAnalysis = analysis['mood_analysis'] as Map<String, dynamic>?;
         final predictedMood = moodAnalysis?['predicted_mood']?.toString();
-        if (predictedMood != null && predictedMood.trim().isNotEmpty) {
+        final trained = [
+          'user_model',
+          'global_model',
+        ].contains(moodAnalysis?['model_status']);
+        if (trained &&
+            predictedMood != null &&
+            predictedMood.trim().isNotEmpty) {
           audioEntry.moodLabel = predictedMood.trim().toLowerCase();
           await audioEntry.save();
           await widget.dataService.syncAudioEntryToCloud(audioEntry);
@@ -452,17 +485,26 @@ class _AudioPageState extends State<AudioPage> {
             'personalized': moodAnalysis?['personalized'] == true,
           },
         );
-        _showSnackBar('Audio analyzed successfully!');
+        if (mounted) {
+          _showSnackBar(
+            trained
+                ? 'Audio analyzed successfully!'
+                : 'Acoustic results available. Experimental mood estimates were not added to your insights.',
+          );
+        }
       }
     } catch (e) {
       await AnalyticsService.track(
         'audio_analysis_failed',
         properties: {'mode': audioEntry.mode},
       );
-      setState(() {
-        _isAnalyzing = false;
-      });
-      _showSnackBar('Analysis error: $e');
+      if (mounted) {
+        _showSnackBar(
+          'Could not complete analysis. Your recording remains saved.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
     }
   }
 

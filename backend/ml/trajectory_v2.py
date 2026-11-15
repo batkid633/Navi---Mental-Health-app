@@ -8,10 +8,8 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import ElasticNetCV, RidgeCV
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from .temporal_training import fit_temporal_model
 
 try:
     from user_data import active_dataset_path
@@ -122,7 +120,7 @@ def _ensure_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
     for feature in all_features:
         if feature not in df.columns:
             df[feature] = np.nan
-        df[feature] = pd.to_numeric(df[feature], errors="coerce")
+        df[feature] = pd.to_numeric(df[feature], errors="coerce").replace([np.inf, -np.inf], np.nan)
 
     df["missing_journal"] = df.get("missing_journal", df[TARGET_BASE].isna()).fillna(
         df[TARGET_BASE].isna().astype(int)
@@ -149,10 +147,32 @@ def _ensure_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_horizon_frame(df: pd.DataFrame, horizon: int) -> pd.DataFrame:
+    if not isinstance(horizon, int) or isinstance(horizon, bool) or horizon < 1:
+        raise ValueError("Forecast horizon must be a positive number of calendar days")
     frame = _ensure_feature_columns(df)
-    frame[f"target_delta_{horizon}d"] = frame[TARGET_BASE].shift(-horizon) - frame[TARGET_BASE]
-    frame[f"target_mood_{horizon}d"] = frame[TARGET_BASE].shift(-horizon)
+    frame['date'] = pd.to_datetime(frame['date'], errors='coerce').dt.normalize()
+    frame = frame.dropna(subset=['date']).sort_values('date').copy()
+    if frame['date'].duplicated().any():
+        raise ValueError("Training requires one explicitly aggregated observation per calendar date")
+    frame[TARGET_BASE] = pd.to_numeric(frame[TARGET_BASE], errors='coerce')
+    frame.loc[~frame[TARGET_BASE].between(-1, 1), TARGET_BASE] = np.nan
+    outcomes = frame.set_index('date')[TARGET_BASE]
+    frame['target_date'] = frame['date'] + pd.to_timedelta(horizon, unit='D')
+    future = frame['target_date'].map(outcomes)
+    frame[f"target_delta_{horizon}d"] = future - frame[TARGET_BASE]
+    frame[f"target_mood_{horizon}d"] = future
     return frame.dropna(subset=[TARGET_BASE, f"target_delta_{horizon}d"]).reset_index(drop=True)
+
+
+def _temporal_holdout(frame: pd.DataFrame, split: int):
+    """Exclude training outcomes unavailable before the first evaluation date."""
+    ordered = frame.sort_values('date').reset_index(drop=True)
+    if split < 1 or split >= len(ordered):
+        raise ValueError('Split must leave training and evaluation observations')
+    test = ordered.iloc[split:].copy()
+    train = ordered.iloc[:split].copy()
+    train = train.loc[train['target_date'] < test['date'].min()].copy()
+    return train, test
 
 
 def _impute_features(train: pd.DataFrame, target: pd.DataFrame, features: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, float]]:
@@ -165,25 +185,6 @@ def _impute_features(train: pd.DataFrame, target: pd.DataFrame, features: list[s
         target[features].fillna(medians),
         medians,
     )
-
-
-def _fit_model(train_x: pd.DataFrame, train_y: pd.Series):
-    if len(train_x) >= 30:
-        model = ElasticNetCV(
-            l1_ratio=[0.1, 0.5, 0.9],
-            alphas=np.logspace(-4, 1, 30),
-            cv=min(5, max(2, len(train_x) // 8)),
-            random_state=42,
-            max_iter=20000,
-        )
-    else:
-        model = RidgeCV(alphas=np.logspace(-3, 3, 30))
-    pipeline = Pipeline([
-        ("scale", StandardScaler()),
-        ("model", model),
-    ])
-    pipeline.fit(train_x, train_y)
-    return pipeline
 
 
 def _metric_dict(y_true, y_pred, baseline_pred) -> dict[str, Any]:
@@ -211,13 +212,16 @@ def _evaluate_ablation(frame: pd.DataFrame, horizon: int, ablation_name: str, gr
     if split < 4:
         return None
 
-    train = frame.iloc[:split].copy()
-    test = frame.iloc[split:].copy()
+    train, test = _temporal_holdout(frame, split)
+    if len(train) < 4:
+        return None
     features = _model_feature_names(groups)
     target = f"target_delta_{horizon}d"
-    train_x, test_x, medians = _impute_features(train, test, features)
-    model = _fit_model(train_x, train[target])
-    pred = model.predict(test_x)
+    _, _, medians = _impute_features(train, test, features)
+    # Raw missing values enter the pipeline so inner-fold imputation/scaling
+    # cannot learn from the held-out inner observations.
+    model = fit_temporal_model(train[features], train[target], train['date'], train['target_date'])
+    pred = model.predict(test[features].replace([np.inf, -np.inf], np.nan))
     baseline = np.zeros(len(test))
     metrics = _metric_dict(test[target], pred, baseline)
     return {
@@ -226,6 +230,11 @@ def _evaluate_ablation(frame: pd.DataFrame, horizon: int, ablation_name: str, gr
         "features": features,
         "train_n": int(len(train)),
         "test_n": int(len(test)),
+        "evaluation_protocol": "calendar_horizon_purged_holdout_v1",
+        "inner_selection_protocol": model.navi_selection_protocol_,
+        "inner_fold_count": model.navi_inner_fold_count_,
+        "train_last_target_date": train['target_date'].max().isoformat(),
+        "test_first_date": test['date'].min().isoformat(),
         "metrics": metrics,
         "feature_medians": medians,
         "model": model,
@@ -267,17 +276,35 @@ def train_trajectory_v2(user_id: str | None = None, activate: bool = True) -> di
         "row_count": int(len(df)),
         "horizons": {},
         "active_ablation_strategy": "best_time_split_mae_per_horizon",
+        "target_definition": "future_journal_sentiment_minus_current_journal_sentiment",
+        "horizon_definition": "calendar_days",
+        "evaluation_protocol": "calendar_horizon_purged_holdout_v1",
+        "metrics_role": "horizon_metrics_are_selection_only; final_test_is_untouched",
+        "clinical_validation": False,
+        "confidence_calibrated": False,
         "active_ablations": {},
+        "final_test": {},
     }
 
     artifacts: dict[str, dict[str, Any]] = {}
     for horizon in HORIZONS:
         frame = _build_horizon_frame(df, horizon)
+        if len(frame) < 12:
+            report['horizons'][str(horizon)] = []
+            report['final_test'][str(horizon)] = {'status': 'insufficient_history'}
+            continue
+        development, final_test = _temporal_holdout(frame, int(len(frame) * 0.8))
+        if len(development) < 8 or len(final_test) < 2:
+            report['horizons'][str(horizon)] = []
+            report['final_test'][str(horizon)] = {'status': 'insufficient_history_after_purge'}
+            continue
         horizon_report = []
+        fitted_candidates = {}
         for ablation_name, groups in ABLATIONS.items():
-            result = _evaluate_ablation(frame, horizon, ablation_name, groups)
+            result = _evaluate_ablation(development, horizon, ablation_name, groups)
             if result is None:
                 continue
+            fitted_candidates[ablation_name] = result
             artifact_name = f"{ablation_name}_{horizon}d.pkl"
             artifact_path = version_dir / artifact_name
             joblib.dump(
@@ -306,7 +333,19 @@ def train_trajectory_v2(user_id: str | None = None, activate: bool = True) -> di
                 key=lambda item: item.get("metrics", {}).get("mae", float("inf")),
             )
             report["active_ablations"][str(horizon)] = best["ablation"]
+            chosen = fitted_candidates[best['ablation']]
+            prediction = chosen['model'].predict(final_test[chosen['features']].replace([np.inf, -np.inf], np.nan))
+            report['final_test'][str(horizon)] = {
+                'status': 'evaluated_once_after_selection',
+                'ablation': best['ablation'],
+                'start_date': final_test['date'].min().isoformat(),
+                'end_date': final_test['date'].max().isoformat(),
+                'metrics': _metric_dict(final_test[f'target_delta_{horizon}d'], prediction, np.zeros(len(final_test))),
+                'scope': 'single_temporal_holdout_not_clinical_validation',
+            }
 
+    if not artifacts:
+        raise ValueError('Insufficient history for purged model selection and independent evaluation; no model activated')
     report["artifacts"] = artifacts
     report_path = version_dir / "report.json"
     with open(report_path, "w", encoding="utf-8") as f:
@@ -342,7 +381,7 @@ def evaluate_trajectory_v2(user_id: str | None = None) -> dict[str, Any]:
     report = load_active_report()
     if report is not None:
         return report
-    return train_trajectory_v2(user_id=user_id, activate=False)
+    raise ValueError('No active evaluation report; explicit offline training is required')
 
 
 def _load_artifact(report: dict[str, Any], horizon: int, ablation: str | None = None) -> dict[str, Any] | None:
@@ -361,7 +400,7 @@ def _load_artifact(report: dict[str, Any], horizon: int, ablation: str | None = 
 def predict_trajectory_v2(feature_dict: dict[str, Any], user_id: str | None = None) -> dict[str, Any]:
     report = load_active_report()
     if report is None:
-        report = train_trajectory_v2(user_id=user_id, activate=True)
+        raise ValueError('No active trajectory model; inference never trains or activates models')
 
     row = pd.DataFrame([feature_dict or {}])
     row = _ensure_feature_columns(row)

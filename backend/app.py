@@ -46,6 +46,7 @@ try:
         upload_packet_to_gcs,
     )
     from sentiment.vader import analyze_sentiment
+    from ml.prediction_service import predict_current
     from ml.predict_mood import predict_next_day
     from ml.trajectory_model import predict_trajectory
     from ml.validation_report import build_validation_report
@@ -88,6 +89,7 @@ except ModuleNotFoundError:
         upload_packet_to_gcs,
     )
     from .sentiment.vader import analyze_sentiment
+    from .ml.prediction_service import predict_current
     from .ml.predict_mood import predict_next_day
     from .ml.trajectory_model import predict_trajectory
     from .ml.validation_report import build_validation_report
@@ -819,40 +821,10 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
     features = load_features_for_date(req.date, current_user.uid)
     
     try:
-        legacy_result = predict_next_day(features, current_user.uid)
-        trajectory_result = predict_trajectory(
-            features,
-            current_user.uid,
-            legacy_next_day=legacy_result,
-        )
-        result = {
-            **legacy_result,
-            **trajectory_result,
-            "raw_next_day_model": legacy_result,
-            "model_version": f"{legacy_result.get('model_version', 'unknown')}+trajectory_v1",
-        }
+        result = predict_current(features, current_user.uid)
     except Exception:
-        result = {
-            "predicted_delta": 0.0,
-            "confidence": 0.0,
-            "model_version": "v1",
-            "trajectory": [],
-            "trajectory_summary": {
-                "direction": "unknown",
-                "model_family": "unavailable",
-            },
-            "modality_coverage": {
-                "modalities": {
-                    "journal": False,
-                    "biometric": False,
-                    "audio": False,
-                    "keyboard": False,
-                },
-                "available_modalities": [],
-                "coverage_ratio": 0.0,
-            },
-            "validation": {"validation_ready": False, "reason": "prediction_failed"},
-        }
+        logger.exception("tomorrow_prediction_failed")
+        raise HTTPException(status_code=503, detail="A current forecast is unavailable; no neutral score was substituted")
 
     event = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -865,6 +837,7 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
     }
     insight_context = {
         **features,
+        "model_version": result["model_version"],
         "predicted_delta": result["predicted_delta"],
         "confidence": result["confidence"],
         "trajectory": result.get("trajectory", []),
@@ -876,7 +849,7 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
         insight = generate_insight(insight_context)
         # Force reload bypasses the cache but still writes into the user-scoped
         # cache for future non-forced requests.
-        save_cached_insight(req.date, insight, current_user.uid)
+        save_cached_insight(req.date, insight, current_user.uid, context=insight_context)
     else:
         insight = get_llm_insight(req.date, insight_context, current_user.uid)
 
@@ -909,17 +882,7 @@ def predict_mood_trajectory(
     req.date = _parse_iso_date(req.date)
     features = load_features_for_date(req.date, current_user.uid)
     try:
-        legacy_result = predict_next_day(features, current_user.uid)
-        trajectory_result = predict_trajectory(
-            features,
-            current_user.uid,
-            legacy_next_day=legacy_result,
-        )
-        result = {
-            **trajectory_result,
-            "raw_next_day_model": legacy_result,
-            "model_version": f"{legacy_result.get('model_version', 'unknown')}+trajectory_v1",
-        }
+        result = predict_current(features, current_user.uid)
     except Exception:
         logger.exception("trajectory_prediction_failed")
         raise HTTPException(status_code=500, detail="Trajectory prediction failed")
@@ -945,7 +908,7 @@ def predict_mood_trajectory_v2(
     req.date = _parse_iso_date(req.date)
     features = load_features_for_date(req.date, current_user.uid)
     try:
-        result = predict_trajectory_v2(features, current_user.uid)
+        result = predict_current(features, current_user.uid)
         log_product_event(
             "trajectory_v2_prediction_generated",
             current_user,

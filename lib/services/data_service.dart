@@ -18,6 +18,7 @@ import 'settings_service.dart';
 import 'encryption_service.dart';
 import 'local_research_repository.dart';
 import 'beta_survey_repository.dart';
+import 'beta_feedback_cloud.dart';
 
 class DataService {
   static const _sharedJournalBoxName = 'journal_shared';
@@ -38,10 +39,23 @@ class DataService {
   bool _keyboardCloudInitialized = false;
   bool _beaconInitialized = false;
   String? _accountCloudKeyInitializedForUid;
+  String? _lastPredictionFeaturePayload;
+  int _predictionInputRevision = 0;
+  int _loadedPredictionInputRevision = -1;
+  int get predictionInputRevision => _predictionInputRevision;
+  bool get predictionInputsChanged =>
+      _predictionInputRevision != _loadedPredictionInputRevision;
+  void predictionInputsLoaded(int revision) {
+    _loadedPredictionInputRevision = revision;
+  }
+
+  BetaSurveyRepository? _betaRepository;
+  String? _betaUid;
 
   Future<BetaSurveyRepository?> betaSurveyRepository() async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) return null;
+    if (_betaUid == uid && _betaRepository != null) return _betaRepository;
     final box = await Hive.openBox<dynamic>(
       'beta_survey_secure_$uid',
       encryptionCipher: HiveAesCipher(
@@ -49,7 +63,11 @@ class DataService {
       ),
     );
     if (_currentUserId != uid) return null;
-    return BetaSurveyRepository(box);
+    _betaUid = uid;
+    return _betaRepository = BetaSurveyRepository(
+      box,
+      upload: BetaFeedbackCloud(uid).upload,
+    );
   }
 
   Future<LocalResearchRepository?> localResearchRepository() async {
@@ -741,7 +759,7 @@ class DataService {
     }
   }
 
-  Future<void> syncJournalFeaturesToBackend(
+  Future<bool> syncJournalFeaturesToBackend(
     Box<JournalEntry> journalBox,
   ) async {
     Box<AudioEntry>? audioBox;
@@ -762,7 +780,7 @@ class DataService {
     } catch (_) {
       beaconBox = null;
     }
-    await _syncDailyFeaturesToBackend(
+    return _syncDailyFeaturesToBackend(
       journalBox,
       audioBox: audioBox,
       keyboardBox: keyboardBox,
@@ -1288,7 +1306,7 @@ class DataService {
     }
   }
 
-  Future<void> _syncDailyFeaturesToBackend(
+  Future<bool> _syncDailyFeaturesToBackend(
     Box<JournalEntry> journalBox, {
     Box<AudioEntry>? audioBox,
     Box<KeyboardSessionEntry>? keyboardBox,
@@ -1297,10 +1315,10 @@ class DataService {
     await _tryCollectLocalResearch();
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty) {
-      return;
+      return false;
     }
     if (!SettingsService.researchDataSharingEnabled) {
-      return;
+      return false;
     }
 
     final records = MLExportService.buildDailyFeatureRecords(
@@ -1310,24 +1328,34 @@ class DataService {
       beaconSamples: beaconBox?.values ?? const [],
     );
     if (records.isEmpty) {
-      return;
+      return true;
     }
 
+    final payload = jsonEncode({'records': records});
     try {
       final response = await http
           .post(
             Uri.parse('${BackendConfig.baseUrl}/ml/daily-features'),
             headers: await BackendConfig.getAuthHeaders(),
-            body: jsonEncode({'records': records}),
+            body: payload,
           )
           .timeout(const Duration(seconds: 8));
-      if (response.statusCode >= 400) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         debugPrint(
           '[DataService] Daily feature sync failed: ${response.statusCode}',
         );
+        return false;
       }
+      if (_currentUserId != uid) return false;
+      final scopedPayload = '$uid|${BackendConfig.baseUrl}|$payload';
+      if (_lastPredictionFeaturePayload != scopedPayload) {
+        _lastPredictionFeaturePayload = scopedPayload;
+        _predictionInputRevision++;
+      }
+      return true;
     } catch (e) {
       debugPrint('[DataService] Daily feature sync skipped: $e');
+      return false;
     }
   }
 

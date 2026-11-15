@@ -174,8 +174,14 @@ def _modality_coverage(row: dict[str, Any], history: pd.DataFrame) -> dict[str, 
 
 def _recent_trend(history: pd.DataFrame, row: dict[str, Any]) -> tuple[float, float]:
     if len(history) >= 3:
-        recent = history.tail(min(14, len(history)))
-        x = np.arange(len(recent)).reshape(-1, 1)
+        recent = history.tail(min(14, len(history))).copy()
+        recent['date'] = pd.to_datetime(recent['date'], errors='coerce')
+        recent[SENTIMENT] = pd.to_numeric(recent[SENTIMENT], errors='coerce')
+        recent = recent.dropna(subset=['date', SENTIMENT]).sort_values('date')
+        recent = recent[recent[SENTIMENT].between(-1, 1)]
+        if len(recent) < 3 or recent['date'].duplicated().any():
+            return 0.0, 0.2
+        x = ((recent['date'] - recent['date'].min()).dt.total_seconds() / 86400).to_numpy().reshape(-1, 1)
         y = recent[SENTIMENT].to_numpy()
         model = LinearRegression().fit(x, y)
         fitted = model.predict(x)
@@ -243,9 +249,11 @@ def _keyboard_adjustment(row: dict[str, Any], history: pd.DataFrame) -> float:
 
 
 def _components(row: dict[str, Any], history: pd.DataFrame) -> TrajectoryComponents:
-    baseline = _num(row.get(SENTIMENT))
-    if baseline == 0.0 and len(history) > 0:
-        baseline = _num(history.iloc[-1].get(SENTIMENT))
+    baseline = _num(row.get(SENTIMENT), float('nan'))
+    if not math.isfinite(baseline) and len(history) > 0:
+        baseline = _num(history.iloc[-1].get(SENTIMENT), float('nan'))
+    if not math.isfinite(baseline):
+        raise ValueError('A measured journal sentiment baseline is required')
 
     trend, residual_std = _recent_trend(history, row)
     volatility = _num(row.get("volatility_7"), _safe_std(history[SENTIMENT]) if len(history) else 0.2)
@@ -271,7 +279,12 @@ def _validation_diagnostics(history: pd.DataFrame) -> dict[str, Any]:
         }
 
     rows = history.copy()
-    rows["previous"] = rows[SENTIMENT].shift(1)
+    rows['date'] = pd.to_datetime(rows['date'], errors='coerce').dt.normalize()
+    rows = rows.dropna(subset=['date']).sort_values('date')
+    if rows['date'].duplicated().any():
+        return {'sample_count': len(history), 'validation_ready': False, 'reason': 'duplicate_dates'}
+    outcomes = rows.set_index('date')[SENTIMENT]
+    rows['previous'] = (rows['date'] - pd.Timedelta(days=1)).map(outcomes)
     rows = rows.dropna(subset=["previous"])
     if rows.empty:
         return {
@@ -282,8 +295,9 @@ def _validation_diagnostics(history: pd.DataFrame) -> dict[str, Any]:
     persistence_mae = float(np.mean(np.abs(rows[SENTIMENT] - rows["previous"])))
     return {
         "sample_count": int(len(history)),
-        "validation_ready": len(history) >= 30,
-        "reason": "ok" if len(history) >= 30 else "needs_at_least_30_daily_rows_for_study_validation",
+        "validation_ready": False,
+        "reason": "descriptive_persistence_baseline_only_not_model_validation",
+        "paired_day_count": int(len(rows)),
         "persistence_baseline_mae": persistence_mae,
         "target_rows": int(history[TARGET].notna().sum()) if TARGET in history.columns else 0,
     }
@@ -343,6 +357,8 @@ def predict_trajectory(
                 "predicted_delta": float(np.clip(expected_mood - parts.baseline, -2.0, 2.0)),
                 "uncertainty": uncertainty,
                 "confidence": confidence,
+                "confidence_kind": "uncalibrated_heuristic_score",
+                "uncertainty_kind": "heuristic_spread_not_prediction_interval",
             }
         )
 

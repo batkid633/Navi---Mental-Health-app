@@ -46,7 +46,7 @@ class _MetricsDropdownState extends State<MetricsDropdown> {
               children: [
                 _MetricChip(
                   icon: Icons.mood,
-                  label: 'Mood',
+                  label: 'Journal sentiment',
                   value: _formatMood(trend.mood),
                   tooltip:
                       'Average journal sentiment for the latest available day.',
@@ -87,7 +87,7 @@ class _MetricsDropdownState extends State<MetricsDropdown> {
                 children: [
                   _explanation(
                     'Mood',
-                    '${_formatMood(trend.mood)} (${trend.mood.toStringAsFixed(2)})',
+                    '${_formatMood(trend.mood)} (${trend.mood?.toStringAsFixed(2) ?? 'missing'})',
                     'Scores above zero lean positive, below zero lean negative, and near zero are neutral.',
                   ),
                   if (trend.volatility != null)
@@ -172,7 +172,8 @@ class _MetricsDropdownState extends State<MetricsDropdown> {
     return 'Latest data: ${parsed.month}/${parsed.day}/${parsed.year}';
   }
 
-  String _formatMood(double value) {
+  String _formatMood(double? value) {
+    if (value == null) return 'No journal sentiment';
     if (value >= 0.35) return 'Positive';
     if (value >= 0.10) return 'Slightly positive';
     if (value > -0.10) return 'Neutral';

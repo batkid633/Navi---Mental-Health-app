@@ -10,6 +10,40 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // Provision owner membership through an administrator, never the client.
+    function betaOwner() {
+      return signedIn() && exists(/databases/$(database)/documents/beta_feedback_owners/$(request.auth.uid));
+    }
+    function countValue(n) { return n is int && n >= 0 && n <= 100000; }
+    function fiveCounts(a) {
+      return a is list && a.size() == 5 && countValue(a[0]) && countValue(a[1])
+        && countValue(a[2]) && countValue(a[3]) && countValue(a[4]);
+    }
+    function sumFive(a) { return a[0] + a[1] + a[2] + a[3] + a[4]; }
+    function validBetaSnapshot(d) {
+      return d.keys().hasAll(['schemaVersion', 'consentVersion', 'completed', 'easeCounts', 'helpfulnessCounts', 'issueCounts'])
+        && d.keys().hasOnly(['schemaVersion', 'consentVersion', 'completed', 'easeCounts', 'helpfulnessCounts', 'issueCounts'])
+        && d.schemaVersion == 'beta-feedback-1' && d.consentVersion == 'beta-sharing-1'
+        && countValue(d.completed)
+        && fiveCounts(d.easeCounts) && sumFive(d.easeCounts) <= d.completed
+        && fiveCounts(d.helpfulnessCounts) && sumFive(d.helpfulnessCounts) <= d.completed
+        && d.issueCounts is list && d.issueCounts.size() == 6
+        && countValue(d.issueCounts[0]) && countValue(d.issueCounts[1])
+        && countValue(d.issueCounts[2]) && countValue(d.issueCounts[3])
+        && countValue(d.issueCounts[4]) && countValue(d.issueCounts[5])
+        && sumFive(d.issueCounts) + d.issueCounts[5] == d.completed;
+    }
+    match /beta_feedback_owners/{userId} {
+      allow get: if ownsUserDocument(userId);
+      allow list, create, update, delete: if false;
+    }
+    match /beta_feedback_snapshots/{userId} {
+      allow get: if ownsUserDocument(userId) || betaOwner();
+      allow list: if betaOwner();
+      allow create, update: if ownsUserDocument(userId) && validBetaSnapshot(request.resource.data);
+      allow delete: if ownsUserDocument(userId);
+    }
+
     match /users/{userId} {
       allow read, create, update, delete: if ownsUserDocument(userId);
 

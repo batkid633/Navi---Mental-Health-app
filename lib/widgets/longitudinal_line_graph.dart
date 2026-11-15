@@ -31,6 +31,8 @@ class LongitudinalLineGraph extends StatelessWidget {
       final val = selector(trends[i]);
       if (val != null) {
         points.add(FlSpot(i.toDouble(), val));
+      } else {
+        points.add(FlSpot.nullSpot);
       }
     }
 
@@ -53,15 +55,17 @@ class LongitudinalLineGraph extends StatelessWidget {
                   lineBarsData: [
                     LineChartBarData(
                       spots: points,
-                      isCurved: true,
+                      isCurved: false,
                       color: color,
                       dotData: FlDotData(show: false),
-                    )
+                    ),
                   ],
                   gridData: FlGridData(show: true),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
-                      axisNameWidget: yAxisLabel != null ? Text(yAxisLabel!, style: TextStyle(fontSize: 12)) : null,
+                      axisNameWidget: yAxisLabel != null
+                          ? Text(yAxisLabel!, style: TextStyle(fontSize: 12))
+                          : null,
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
@@ -72,7 +76,9 @@ class LongitudinalLineGraph extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
-                        interval: trends.length > 7 ? (trends.length / 7).ceil().toDouble() : 1,
+                        interval: trends.length > 7
+                            ? (trends.length / 7).ceil().toDouble()
+                            : 1,
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
                           if (index >= 0 && index < trends.length) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -107,7 +108,7 @@ class NaviHome extends StatefulWidget {
 
 class _NaviHomeState extends State<NaviHome> with WidgetsBindingObserver {
   bool _checkingSurvey = false;
-  int _tabIndex = 0;
+  int _tabIndex = 1; // Start with a journal entry before opening Today.
   late final List<Widget> _pages;
 
   @override
@@ -128,6 +129,7 @@ class _NaviHomeState extends State<NaviHome> with WidgetsBindingObserver {
     _checkingSurvey = true;
     try {
       final repository = await widget.dataService.betaSurveyRepository();
+      if (repository != null) unawaited(repository.sync());
       if (!mounted ||
           repository == null ||
           !repository.due ||

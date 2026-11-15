@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:navi_personal/services/beta_survey_repository.dart';
@@ -23,6 +24,119 @@ void main() {
     await Hive.close();
     await directory.delete(recursive: true);
   });
+  test(
+    'sharing defaults off and enabling does not upload historical answers',
+    () async {
+      final uploads = <Map<String, dynamic>?>[];
+      repository = BetaSurveyRepository(
+        box,
+        clock: () => clock,
+        upload: (s) async {
+          uploads.add(s);
+        },
+      );
+      await repository.save(day: repository.today, ease: 1, issue: 'audio');
+      expect(repository.sharing, isFalse);
+      await repository.sync();
+      expect(uploads, isEmpty);
+      await repository.setSharing(true);
+      await repository.sync();
+      expect(uploads, isEmpty);
+      clock = clock.add(const Duration(days: 1));
+      await repository.save(day: repository.today, ease: 5, issue: 'none');
+      expect(uploads.single!['completed'], 1);
+      expect(uploads.single!['easeCounts'], [0, 0, 0, 0, 1]);
+      expect(
+        uploads.single!.keys,
+        unorderedEquals([
+          'schemaVersion',
+          'consentVersion',
+          'completed',
+          'easeCounts',
+          'helpfulnessCounts',
+          'issueCounts',
+        ]),
+      );
+    },
+  );
+  test('failed uploads retry and opt-out cancels pending uploads', () async {
+    var fail = true;
+    var writes = 0;
+    repository = BetaSurveyRepository(
+      box,
+      clock: () => clock,
+      upload: (s) async {
+        if (fail) throw StateError('offline');
+        writes++;
+      },
+    );
+    await repository.setSharing(true);
+    await repository.save(day: repository.today, ease: 4, issue: 'none');
+    expect(repository.pending, isTrue);
+    fail = false;
+    await repository.sync();
+    expect(writes, 1);
+    expect(repository.pending, isFalse);
+    fail = true;
+    await repository.save(day: repository.today, ease: 3, issue: 'audio');
+    await repository.setSharing(false);
+    fail = false;
+    await repository.sync();
+    expect(writes, 1);
+  });
+  test(
+    'deletion survives failure and prevents re-enabling until confirmed',
+    () async {
+      var fail = true;
+      repository = BetaSurveyRepository(
+        box,
+        clock: () => clock,
+        upload: (s) async {
+          expect(s, isNull);
+          if (fail) throw StateError('offline');
+        },
+      );
+      await repository.deleteShared();
+      expect(repository.deletionPending, isTrue);
+      await expectLater(repository.setSharing(true), throwsStateError);
+      fail = false;
+      await repository.sync();
+      expect(repository.deletionPending, isFalse);
+      expect(repository.sharing, isFalse);
+    },
+  );
+  test(
+    'deletion waits for an in-flight upload then removes the snapshot',
+    () async {
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final calls = <Map<String, dynamic>?>[];
+      repository = BetaSurveyRepository(
+        box,
+        clock: () => clock,
+        upload: (s) async {
+          calls.add(s);
+          if (s != null) {
+            started.complete();
+            await gate.future;
+          }
+        },
+      );
+      await repository.setSharing(true);
+      final saving = repository.save(
+        day: repository.today,
+        ease: 4,
+        issue: 'none',
+      );
+      await started.future;
+      await repository.deleteShared();
+      gate.complete();
+      await saving;
+      expect(calls.length, 2);
+      expect(calls.last, isNull);
+      expect(repository.deletionPending, isFalse);
+    },
+  );
   test('skip suppresses repeat prompts until the next local day', () async {
     expect(repository.due, isTrue);
     await repository.skip(repository.today);

@@ -12,6 +12,7 @@ import '../models/tomorrow_outlook.dart';
 import '../services/analytics_service.dart';
 import '../services/data_service.dart';
 import '../services/settings_service.dart';
+import '../services/today_refresh_flow.dart';
 
 class TodayPage extends StatefulWidget {
   final DataService dataService;
@@ -67,9 +68,29 @@ class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
   }
 
   void _loadOutlook({bool force = false}) {
-    _outlookFuture = MLPredictionService.loadTomorrowOutlook(
-      date: DateTime.now().toIso8601String(),
-      forceReload: force,
+    _outlookFuture = _prepareOutlook(force: force);
+  }
+
+  Future<TomorrowOutlook?> _prepareOutlook({required bool force}) async {
+    return refreshToday<TomorrowOutlook>(
+      enabled: () => mounted && SettingsService.personalizedInsightsEnabled,
+      sharingEnabled: () => SettingsService.researchDataSharingEnabled,
+      syncInputs: () async {
+        final box = await widget.dataService.getJournalBox();
+        return widget.dataService.syncJournalFeaturesToBackend(box);
+      },
+      load: () async {
+        final revision = widget.dataService.predictionInputRevision;
+        final result = await MLPredictionService.loadTomorrowOutlook(
+          date: DateTime.now().toIso8601String(),
+          forceReload:
+              force ||
+              (SettingsService.researchDataSharingEnabled &&
+                  widget.dataService.predictionInputsChanged),
+        );
+        if (result != null) widget.dataService.predictionInputsLoaded(revision);
+        return result;
+      },
     );
   }
 
@@ -228,6 +249,13 @@ class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    if (!SettingsService.researchDataSharingEnabled)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'New journal and audio metrics are not being sent for backend insights because research sharing is off. Remote insights may use previously shared data. Your local journal summary below still updates.',
+                        ),
+                      ),
                     Text(
                       TodayIntelligenceService.insightText(todayMoodTrend),
                       style: Theme.of(context).textTheme.headlineSmall,
@@ -300,7 +328,18 @@ class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
                         } else if (snapshot.hasError) {
                           return const Text("Error loading prediction.");
                         } else if (!snapshot.hasData) {
-                          return const Text("No data available.");
+                          return Column(
+                            children: [
+                              const Text(
+                                'A current insight is unavailable. Input sync or prediction may not have completed.',
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    setState(() => _loadOutlook(force: true)),
+                                child: const Text('Retry insight'),
+                              ),
+                            ],
+                          );
                         }
 
                         final outlook = snapshot.data!;
@@ -321,6 +360,10 @@ class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
                                 if (outlook.trajectory.isNotEmpty) ...[
                                   const SizedBox(height: 10),
                                   _TrajectoryStrip(outlook: outlook),
+                                  const Text(
+                                    'Model scores are uncalibrated indicators, not probabilities of being correct.',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
                                 ],
                                 if (outlook.modalityCoverage != null) ...[
                                   const SizedBox(height: 8),
@@ -438,7 +481,7 @@ class _TrajectoryStrip extends StatelessWidget {
                 ),
               ),
               Text(
-                '${(point.confidence * 100).round()}%',
+                'score ${point.confidence.toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 10, color: Colors.white54),
               ),
             ],

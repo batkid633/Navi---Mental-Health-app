@@ -1,10 +1,12 @@
 import 'package:hive/hive.dart';
 
-/// Account-scoped encrypted box supplied by DataService. No network operations.
+/// Account-scoped encrypted storage; optional transport receives only aggregates.
 class BetaSurveyRepository {
   final Box<dynamic> box;
   final DateTime Function() now;
-  BetaSurveyRepository(this.box, {DateTime Function()? clock})
+  final Future<void> Function(Map<String, dynamic>? snapshot)? upload;
+  bool _syncing = false;
+  BetaSurveyRepository(this.box, {DateTime Function()? clock, this.upload})
     : now = clock ?? DateTime.now;
   static const version = 'beta-feedback-1';
   static const issues = [
@@ -21,6 +23,87 @@ class BetaSurveyRepository {
   }
 
   bool get enabled => box.get('enabled', defaultValue: true) == true;
+  bool get sharing => box.get('sharing', defaultValue: false) == true;
+  bool get pending => box.get('pending', defaultValue: false) == true;
+  bool get deletionPending =>
+      box.get('deleteShared', defaultValue: false) == true;
+  String get sharingStatus => deletionPending
+      ? 'Shared deletion pending; reconnect and retry.'
+      : pending
+      ? 'Saved locally; upload pending.'
+      : sharing
+      ? 'Sharing enabled. Future saved answers sync automatically.'
+      : 'Sharing off. Previously uploaded feedback remains until deleted.';
+
+  Future<void> setSharing(bool value) async {
+    if (value && deletionPending) {
+      throw StateError('Complete shared deletion first');
+    }
+    await box.put('sharing', value);
+    if (value) {
+      await box.put('consentVersion', 'beta-sharing-1');
+    } else {
+      await box.put('pending', false);
+    }
+    await box.flush();
+  }
+
+  Map<String, dynamic> get sharedSnapshot {
+    final rows = box.keys
+        .where((k) => k.toString().startsWith('shared:'))
+        .map((k) => Map<String, dynamic>.from(box.get(k) as Map))
+        .toList();
+    return {
+      'schemaVersion': version,
+      'consentVersion': 'beta-sharing-1',
+      'completed': rows.length,
+      for (final field in ['ease', 'helpfulness'])
+        '${field}Counts': [
+          for (var i = 1; i <= 5; i++) rows.where((r) => r[field] == i).length,
+        ],
+      'issueCounts': [
+        for (final issue in issues)
+          rows.where((r) => r['issue'] == issue).length,
+      ],
+    };
+  }
+
+  Future<void> deleteShared() async {
+    await setSharing(false);
+    await box.put('deleteShared', true);
+    await box.deleteAll(
+      box.keys.where((k) => k.toString().startsWith('shared:')).toList(),
+    );
+    await box.flush();
+    await sync();
+  }
+
+  Future<void> sync() async {
+    if (_syncing || upload == null) return;
+    _syncing = true;
+    final wasDeleting = deletionPending;
+    try {
+      if (deletionPending) {
+        await upload!(null);
+        await box.put('deleteShared', false);
+      } else if (sharing && pending) {
+        final snapshot = sharedSnapshot;
+        await upload!(snapshot);
+        // A save during the request must remain queued for the next retry.
+        if (snapshot.toString() == sharedSnapshot.toString()) {
+          await box.put('pending', false);
+        }
+      }
+      await box.flush();
+    } catch (_) {
+      // Retain durable pending state; retry on save, resume, or explicit retry.
+    } finally {
+      _syncing = false;
+    }
+    // An opt-out deletion requested during an upload must run after that upload.
+    if (deletionPending && !wasDeleting) await sync();
+  }
+
   bool get due => enabled && !box.containsKey('day:$today');
   Map<String, dynamic>? responseFor(String day) {
     final value = box.get('day:$day');
@@ -60,7 +143,16 @@ class BetaSurveyRepository {
       'helpfulness': helpfulness,
       'issue': issue,
     });
+    if (sharing) {
+      await box.put('shared:$day', {
+        'ease': ease,
+        'helpfulness': helpfulness,
+        'issue': issue,
+      });
+      await box.put('pending', true);
+    }
     await box.flush();
+    await sync();
   }
 
   List<Map<String, dynamic>> get days =>
@@ -123,6 +215,7 @@ class BetaSurveyRepository {
   }
 
   Future<void> deleteResponses() async {
+    await deleteShared();
     await box.deleteAll(
       box.keys.where((k) => k.toString().startsWith('day:')).toList(),
     );

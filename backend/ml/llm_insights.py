@@ -1,3 +1,4 @@
+from .insight_context import safe_insight_context, insight_cache_key
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -27,7 +28,7 @@ def get_openai_client() -> OpenAI:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     return OpenAI(api_key=key, timeout=SETTINGS.outbound_timeout_seconds)
 
-def load_cached_insight(entry_date, user_id: str | None = None):
+def load_cached_insight(entry_date, user_id: str | None = None, context: dict | None = None):
     # Normalize date → YYYY-MM-DD
     if "T" in entry_date:
         entry_date = entry_date.split("T")[0]
@@ -39,7 +40,7 @@ def load_cached_insight(entry_date, user_id: str | None = None):
     with open(insights_path, encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
-            if row["date"] == entry_date:
+            if row["date"] == entry_date and context is not None and row.get("context_key") == insight_cache_key(context):
                 latest = row["insight"]
     return latest
 
@@ -96,6 +97,7 @@ def _violates_bucket(text: str, bucket: dict) -> bool:
     return any(term in normalized for term in forbidden_terms)
 
 def generate_insight(context: dict) -> str:
+    context = safe_insight_context(context)
     bucket = outlook_bucket(context.get("predicted_delta"))
     trajectory = context.get("trajectory") or []
     trajectory_lines = []
@@ -189,6 +191,7 @@ def save_cached_insight(
     entry_date: str,
     insight: str,
     user_id: str | None = None,
+    context: dict | None = None,
 ) -> None:
     if "T" in entry_date:
         entry_date = entry_date.split("T")[0]
@@ -199,7 +202,8 @@ def save_cached_insight(
         f.write(json.dumps({
             "user_id": user_id,
             "date": entry_date,
-            "insight": insight
+            "insight": insight,
+            "context_key": insight_cache_key(context) if context is not None else None
         }) + "\n")
 
 def get_llm_insight(entry_date: str, features: dict, user_id: str | None = None):
@@ -207,12 +211,12 @@ def get_llm_insight(entry_date: str, features: dict, user_id: str | None = None)
     if "T" in entry_date:
         entry_date = entry_date.split("T")[0]
 
-    cached = load_cached_insight(entry_date, user_id)
+    cached = load_cached_insight(entry_date, user_id, context=features)
     if cached:
         return cached
 
     insight = generate_insight(features)
 
-    save_cached_insight(entry_date, insight, user_id)
+    save_cached_insight(entry_date, insight, user_id, context=features)
 
     return insight

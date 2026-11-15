@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/beta_survey_repository.dart';
+import 'beta_owner_page.dart';
 
 Future<void> showBetaSurvey(
   BuildContext context,
@@ -94,8 +95,8 @@ class _SurveyDialogState extends State<_SurveyDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Optional: reflect on your most recent NAVI use. Responses stay encrypted on this device; nothing is uploaded. Saving agrees to local storage. You can disable reminders or delete responses in Settings.',
+            Text(
+              'Optional: reflect on your most recent NAVI use. Answers are stored encrypted on this device. ${widget.repository.sharing ? 'Sharing is ON: saving also queues aggregate ratings and issue counts for NAVI’s owner.' : 'Sharing is OFF: nothing is uploaded.'} Manage sharing and deletion in Settings.',
             ),
             const SizedBox(height: 12),
             rating(
@@ -137,7 +138,7 @@ class _SurveyDialogState extends State<_SurveyDialog> {
         ),
         FilledButton(
           onPressed: busy ? null : () => finish(true),
-          child: Text(busy ? 'Saving…' : 'Save locally'),
+          child: Text(busy ? 'Saving…' : 'Save feedback'),
         ),
       ],
     ),
@@ -153,13 +154,68 @@ class BetaFeedbackPage extends StatefulWidget {
 
 class _BetaFeedbackPageState extends State<BetaFeedbackPage> {
   String? message;
+  bool busy = false;
   Future<void> perform(Future<void> Function() action) async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      message = null;
+    });
     try {
       await action();
     } catch (_) {
       message = 'Could not complete this action.';
     }
-    if (mounted) setState(() {});
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> share(bool enabled) async {
+    if (enabled) {
+      final agreed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Share beta feedback with NAVI?'),
+          content: const Text(
+            'Optional. Answers saved after enabling this will send aggregate ease, helpfulness and issue counts to Firebase for Cole Rivell to improve NAVI and prepare aggregate presentations. No journal text, audio, health data or survey dates are sent. Records are linked to your account ID: pseudonymous, not anonymous. Use one device per account for this beta; its snapshot replaces earlier uploads. Turn sharing off anytime. Previously shared counts remain until you choose Delete shared feedback; deletion cannot recall previously distributed presentations.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Agree and enable'),
+            ),
+          ],
+        ),
+      );
+      if (agreed != true) return;
+    }
+    await perform(() => widget.repository.setSharing(enabled));
+  }
+
+  Future<void> deleteShared() async {
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete shared beta feedback?'),
+        content: const Text(
+          'Turns sharing off and requests removal of your cloud snapshot. Local answers remain. If offline, deletion retries when you reopen NAVI while signed in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete shared feedback'),
+          ),
+        ],
+      ),
+    );
+    if (agreed == true) await perform(widget.repository.deleteShared);
   }
 
   Future<void> delete() async {
@@ -168,7 +224,7 @@ class _BetaFeedbackPageState extends State<BetaFeedbackPage> {
       builder: (context) => AlertDialog(
         title: const Text('Delete local beta responses?'),
         content: const Text(
-          'This also disables daily survey prompts. Journals and other data are unchanged.',
+          'This disables daily prompts and sharing, and queues deletion of shared beta feedback too. Journals and other data are unchanged.',
         ),
         actions: [
           TextButton(
@@ -197,9 +253,34 @@ class _BetaFeedbackPageState extends State<BetaFeedbackPage> {
             'This account on this device only. Repeated responses are not unique participants. These are usability observations, not clinical outcomes or evidence of effectiveness.',
           ),
           SwitchListTile(
+            title: const Text('Share beta feedback with NAVI'),
+            subtitle: Text(widget.repository.sharingStatus),
+            value: widget.repository.sharing,
+            onChanged: busy ? null : share,
+          ),
+          if (widget.repository.pending || widget.repository.deletionPending)
+            TextButton(
+              onPressed: busy ? null : () => perform(widget.repository.sync),
+              child: const Text('Retry pending sync'),
+            ),
+          TextButton(
+            onPressed: busy ? null : deleteShared,
+            child: const Text('Delete shared beta feedback'),
+          ),
+          TextButton(
+            onPressed: busy
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BetaOwnerPage()),
+                  ),
+            child: const Text('Owner aggregate statistics'),
+          ),
+          SwitchListTile(
             title: const Text('Offer survey on first use each day'),
             value: widget.repository.enabled,
-            onChanged: (v) => perform(() => widget.repository.setEnabled(v)),
+            onChanged: busy
+                ? null
+                : (v) => perform(() => widget.repository.setEnabled(v)),
           ),
           FilledButton(
             onPressed: () =>

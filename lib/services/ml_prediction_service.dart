@@ -1,3 +1,4 @@
+import 'settings_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -22,6 +23,7 @@ class MLPredictionService {
             headers: await BackendConfig.getAuthHeaders(),
             body: jsonEncode({
               "date": date,
+              "model": SettingsService.experimentalV2Enabled ? "v2" : "v1",
               "force_reload":
                   forceReload ||
                   AutomaticBiometricSync.predictionNeedsRefresh(

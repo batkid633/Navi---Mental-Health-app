@@ -407,7 +407,7 @@ class DataService {
 
   // Audio entries - local with user scoping.
   // If the user-specific box is empty, try to fall back to a legacy shared box.
-  Future<Box<AudioEntry>> getAudioBox() async {
+  Future<Box<AudioEntry>> getAudioBox({bool syncCloud = true}) async {
     final boxName = _currentUserId == null
         ? '${_sharedAudioBoxName}_secure'
         : 'audio_secure_$_currentUserId';
@@ -421,7 +421,7 @@ class DataService {
     if (audioBox.isEmpty) {
       await _migrateAudioData(audioBox);
     }
-    if (!_audioCloudInitialized) {
+    if (syncCloud && !_audioCloudInitialized) {
       await _loadAudioEntriesFromCloud(audioBox);
       await _retryQueuedAudioSync(audioBox);
       await _rewriteAudioEntriesToCloud(audioBox);
@@ -454,7 +454,9 @@ class DataService {
     return feedbackBox;
   }
 
-  Future<Box<KeyboardSessionEntry>> getKeyboardSessionBox() async {
+  Future<Box<KeyboardSessionEntry>> getKeyboardSessionBox({
+    bool syncCloud = true,
+  }) async {
     final boxName = _currentUserId == null
         ? '${_sharedKeyboardBoxName}_secure'
         : 'keyboard_sessions_secure_$_currentUserId';
@@ -467,7 +469,7 @@ class DataService {
 
     await _migrateKeyboardSessionData(keyboardBox);
 
-    if (!_keyboardCloudInitialized) {
+    if (syncCloud && !_keyboardCloudInitialized) {
       await _loadKeyboardSessionsFromCloud(keyboardBox);
       await _retryQueuedKeyboardSessionSync(keyboardBox);
       await _rewriteKeyboardSessionsToCloud(keyboardBox);
@@ -762,30 +764,7 @@ class DataService {
   Future<bool> syncJournalFeaturesToBackend(
     Box<JournalEntry> journalBox,
   ) async {
-    Box<AudioEntry>? audioBox;
-    Box<KeyboardSessionEntry>? keyboardBox;
-    Box<NaviBeaconSample>? beaconBox;
-    try {
-      audioBox = await getAudioBox();
-    } catch (_) {
-      audioBox = null;
-    }
-    try {
-      keyboardBox = await getKeyboardSessionBox();
-    } catch (_) {
-      keyboardBox = null;
-    }
-    try {
-      beaconBox = await getNaviBeaconSampleBox();
-    } catch (_) {
-      beaconBox = null;
-    }
-    return _syncDailyFeaturesToBackend(
-      journalBox,
-      audioBox: audioBox,
-      keyboardBox: keyboardBox,
-      beaconBox: beaconBox,
-    );
+    return _syncDailyFeaturesToBackend(journalBox);
   }
 
   Future<void> syncAudioEntryToCloud(AudioEntry entry) async {
@@ -1007,6 +986,27 @@ class DataService {
         'naviBeaconSamples': beaconBox.values
             .map((sample) => sample.toJson())
             .toList(),
+      },
+      'localDailyFeatures':
+          MLExportService.buildDailyFeatureRecords(
+                journalBox,
+                audioEntries: audioBox.values,
+                keyboardSessions: keyboardBox.values,
+                beaconSamples: beaconBox.values,
+              )
+              .map(
+                (record) => {
+                  ...record,
+                  'consent_scope': 'personal_data_export',
+                  'research_use_allowed':
+                      SettingsService.researchDataSharingEnabled,
+                },
+              )
+              .toList(),
+      'localDailyFeaturesCoverage': {
+        'day_basis': 'journal_days_only',
+        'wearable_health': 'not_available_in_local_feature_builder',
+        'raw_modalities': 'see_local_for_records_on_non_journal_days',
       },
       'cloud': cloudData,
       'backend': backendData,
@@ -1336,11 +1336,24 @@ class DataService {
       return false;
     }
 
+    // Never upload a partial snapshot merely because a caller omitted a box.
+    // Local-only reads avoid initiating unrelated cloud synchronization here.
+    try {
+      audioBox ??= await getAudioBox(syncCloud: false);
+      keyboardBox ??= await getKeyboardSessionBox(syncCloud: false);
+      beaconBox ??= await getNaviBeaconSampleBox();
+    } catch (_) {
+      return false; // Preserve the previous backend snapshot on local read failure.
+    }
+    if (_currentUserId != uid || !SettingsService.researchDataSharingEnabled) {
+      return false;
+    }
+
     final records = MLExportService.buildDailyFeatureRecords(
       journalBox,
-      audioEntries: audioBox?.values ?? const [],
-      keyboardSessions: keyboardBox?.values ?? const [],
-      beaconSamples: beaconBox?.values ?? const [],
+      audioEntries: audioBox.values,
+      keyboardSessions: keyboardBox.values,
+      beaconSamples: beaconBox.values,
     );
     if (records.isEmpty) {
       return true;

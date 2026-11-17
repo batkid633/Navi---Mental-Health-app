@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 class TomorrowOutlook {
+  final String? predictionId;
+  final String? primaryModel;
+  final String? selectionReason;
+  final String? targetDate;
   final double predictedDelta;
   final double confidence;
   final String? modelVersion;
@@ -11,6 +15,10 @@ class TomorrowOutlook {
   final ValidationDiagnostics? validation;
 
   TomorrowOutlook({
+    this.predictionId,
+    this.primaryModel,
+    this.selectionReason,
+    this.targetDate,
     required this.predictedDelta,
     required this.confidence,
     this.modelVersion,
@@ -23,6 +31,10 @@ class TomorrowOutlook {
 
   factory TomorrowOutlook.fromJson(Map<String, dynamic> json) {
     return TomorrowOutlook(
+      predictionId: json['prediction_id']?.toString(),
+      primaryModel: json['primary_model']?.toString(),
+      selectionReason: json['selection_reason']?.toString(),
+      targetDate: json['target_date']?.toString(),
       predictedDelta: (json['predicted_delta'] as num).toDouble(),
       confidence: (json['confidence'] as num).toDouble(),
       modelVersion: json['model_version']?.toString(),
@@ -60,6 +72,12 @@ class TomorrowOutlook {
   }
 
   String get trajectoryLabel {
+    if (primaryModel == 'v2') {
+      return 'V2 experimental journal-sentiment forecast';
+    }
+    if (selectionReason == 'v2_unavailable') {
+      return 'V1 fallback — V2 needs more current data';
+    }
     final direction = trajectorySummary?.direction;
     switch (direction) {
       case 'improving':

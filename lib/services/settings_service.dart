@@ -48,6 +48,14 @@ class SettingsService {
     await _migrateMalformedBackendUrl();
   }
 
+  static bool get experimentalV2Enabled =>
+      _box?.get('experimentalV2Enabled', defaultValue: true) == true;
+
+  static Future<void> setExperimentalV2Enabled(bool enabled) async {
+    await init();
+    await _box!.put('experimentalV2Enabled', enabled);
+  }
+
   static bool get useWiFi {
     return _box?.get(_keyUseWiFi, defaultValue: false) as bool;
   }

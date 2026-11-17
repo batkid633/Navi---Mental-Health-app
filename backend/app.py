@@ -12,7 +12,7 @@ import tempfile
 import os
 import sys
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 import json
 import logging
 import traceback
@@ -576,6 +576,7 @@ def sentiment_endpoint(req: JournalRequest, current_user: CurrentUser = Depends(
 class PredictRequest(BaseModel):
     date: str = Field(min_length=8, max_length=40)
     force_reload: bool = False
+    model: Literal["v1", "v2"] = "v2"
 
 class TrajectoryTrainRequest(BaseModel):
     activate: bool = True
@@ -821,7 +822,7 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
     features = load_features_for_date(req.date, current_user.uid)
     
     try:
-        result = predict_current(features, current_user.uid)
+        result = predict_current(features, current_user.uid, primary=req.model, issue_date=req.date)
     except Exception:
         logger.exception("tomorrow_prediction_failed")
         raise HTTPException(status_code=503, detail="A current forecast is unavailable; no neutral score was substituted")
@@ -845,7 +846,9 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
         "modality_coverage": result.get("modality_coverage", {}),
         "validation": result.get("validation", {}),
     }
-    if req.force_reload == True:
+    if result.get("primary_model") == "v2":
+        insight = result["insight"]
+    elif req.force_reload == True:
         insight = generate_insight(insight_context)
         # Force reload bypasses the cache but still writes into the user-scoped
         # cache for future non-forced requests.
@@ -854,6 +857,7 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
         insight = get_llm_insight(req.date, insight_context, current_user.uid)
 
     event["insight"] = insight
+    event["prediction_snapshot"] = {k: result.get(k) for k in ("prediction_id", "primary_model", "model_version", "target_date", "predicted_mood", "predicted_delta", "training_pairs", "used_features", "v1_shadow", "v2_unavailable_reason")}
 
     log_prediction_event(event)
     log_product_event(
@@ -882,7 +886,7 @@ def predict_mood_trajectory(
     req.date = _parse_iso_date(req.date)
     features = load_features_for_date(req.date, current_user.uid)
     try:
-        result = predict_current(features, current_user.uid)
+        result = predict_current(features, current_user.uid, primary=req.model, issue_date=req.date)
     except Exception:
         logger.exception("trajectory_prediction_failed")
         raise HTTPException(status_code=500, detail="Trajectory prediction failed")
@@ -908,7 +912,7 @@ def predict_mood_trajectory_v2(
     req.date = _parse_iso_date(req.date)
     features = load_features_for_date(req.date, current_user.uid)
     try:
-        result = predict_current(features, current_user.uid)
+        result = predict_current(features, current_user.uid, primary=req.model, issue_date=req.date)
         log_product_event(
             "trajectory_v2_prediction_generated",
             current_user,

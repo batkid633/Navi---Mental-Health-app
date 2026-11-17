@@ -21,7 +21,12 @@ class MLExportService {
     for (int i = 0; i < sortedDays.length - 1; i++) {
       final today = sortedDays[i];
       final tomorrow = sortedDays[i + 1];
-      nextDayDelta[today] = dailyAvg[tomorrow]! - dailyAvg[today]!;
+      final expected = DateTime(today.year, today.month, today.day + 1);
+      if (tomorrow.year == expected.year &&
+          tomorrow.month == expected.month &&
+          tomorrow.day == expected.day) {
+        nextDayDelta[today] = dailyAvg[tomorrow]! - dailyAvg[today]!;
+      }
     }
 
     return nextDayDelta;

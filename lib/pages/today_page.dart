@@ -318,6 +318,17 @@ class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    SwitchListTile(
+                      title: const Text('Use experimental V2'),
+                      subtitle: const Text(
+                        'V1 runs in shadow. Turn off to use V1. Neither model is validated.',
+                      ),
+                      value: SettingsService.experimentalV2Enabled,
+                      onChanged: (value) async {
+                        await SettingsService.setExperimentalV2Enabled(value);
+                        if (mounted) setState(() => _loadOutlook(force: true));
+                      },
+                    ),
                     // Place FutureBuilder as a child widget, not a return inside the list.
                     FutureBuilder<TomorrowOutlook?>(
                       future: _outlookFuture,
@@ -523,8 +534,8 @@ class _EvaluationFeedbackControlState
 
   String get _feedbackId {
     return EvaluationFeedback.canonicalId(
-      'tomorrow_prediction',
-      widget.targetDate,
+      'tomorrow_prediction:${widget.outlook.modelVersion ?? 'unknown'}:${widget.outlook.predictionId ?? 'legacy'}',
+      widget.outlook.targetDate ?? widget.targetDate,
     );
   }
 
@@ -539,7 +550,7 @@ class _EvaluationFeedbackControlState
         EvaluationFeedback(
           id: _feedbackId,
           targetType: 'tomorrow_prediction',
-          targetDate: widget.targetDate,
+          targetDate: widget.outlook.targetDate ?? widget.targetDate,
           journalEntryId: widget.journalEntryId,
           predictedDelta: widget.outlook.predictedDelta,
           confidence: widget.outlook.confidence,

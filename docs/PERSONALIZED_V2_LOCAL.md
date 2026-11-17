@@ -138,3 +138,15 @@ Private descriptive readiness reports belong under ignored
 `local_research_exports/`. A fair v1–v2 comparison requires sufficient eligible
 pairs, the frozen v1 artifact and past-only calibration on the same held-out dates.
 No v1 winner/loser claim is made from sparse data or existing prediction logs.
+
+## Sparse-history diagnostic
+
+`exploratory_evaluation.walk_forward_journal` permits a separate retrospective
+fixed-Ridge diagnostic after six prior eligible pairs. This does NOT lower the
+60-pair production candidate gate. Each forecast uses only training outcomes
+strictly before its issue day. Compare persistence and past-only mean on exactly
+the same dates. Predictor subsets are explicit and allowlisted; all imputation
+and scaling is fitted to prior pairs. No PCA selection, calibrated intervals,
+automatic activation or deployed-v1 equivalence is claimed. Examining several
+variants on these same few dates is exploratory, not independent model selection.
+Personal results and figures are kept in ignored `local_research_exports/`.

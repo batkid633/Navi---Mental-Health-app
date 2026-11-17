@@ -23,7 +23,7 @@ class PredictionContractTest(unittest.TestCase):
         def trajectory(features, uid, legacy_next_day):
             self.assertEqual(legacy_next_day['predicted_delta'], .2)
             return {'predicted_delta': .1, 'confidence': .3, 'trajectory': [{'horizon_days': 1}]}
-        result = service.predict_current({}, 'synthetic', legacy_predict=legacy, trajectory_predict=trajectory)
+        result = service.predict_current({}, 'synthetic', legacy_predict=legacy, trajectory_predict=trajectory, primary="v1")
         self.assertEqual(result['model_version'], 'fixture.pkl+navi-forecast-1.1')
         self.assertEqual(result['predicted_delta'], .1)
         self.assertEqual(result['confidence_kind'], 'uncalibrated_heuristic_score')

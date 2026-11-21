@@ -371,8 +371,10 @@ class _TodayPageState extends State<TodayPage> with WidgetsBindingObserver {
                                 if (outlook.trajectory.isNotEmpty) ...[
                                   const SizedBox(height: 10),
                                   _TrajectoryStrip(outlook: outlook),
-                                  const Text(
-                                    'Model scores are uncalibrated indicators, not probabilities of being correct.',
+                                  Text(
+                                    outlook.primaryModel == 'v2'
+                                        ? 'Separate experimental forecasts for each future day. Uncertainty is not calibrated; missing horizons are unavailable.'
+                                        : 'Model scores are uncalibrated indicators, not probabilities of being correct.',
                                     style: TextStyle(fontSize: 12),
                                   ),
                                 ],
@@ -467,8 +469,8 @@ class _TrajectoryStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: outlook.trajectory.take(4).map((point) {
-        final positive = point.predictedDelta > 0.05;
-        final negative = point.predictedDelta < -0.05;
+        final positive = (point.predictedDelta ?? 0) > 0.05;
+        final negative = (point.predictedDelta ?? 0) < -0.05;
         final color = positive
             ? Colors.greenAccent
             : negative
@@ -484,7 +486,9 @@ class _TrajectoryStrip extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                point.predictedMood.toStringAsFixed(2),
+                point.available
+                    ? point.predictedMood!.toStringAsFixed(2)
+                    : 'Unavailable',
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w600,
@@ -492,7 +496,11 @@ class _TrajectoryStrip extends StatelessWidget {
                 ),
               ),
               Text(
-                'score ${point.confidence.toStringAsFixed(2)}',
+                !point.available
+                    ? 'Not enough data'
+                    : point.trainingPairs != null
+                    ? '${point.trainingPairs} pairs'
+                    : 'score ${point.confidence?.toStringAsFixed(2) ?? '—'}',
                 style: const TextStyle(fontSize: 10, color: Colors.white54),
               ),
             ],

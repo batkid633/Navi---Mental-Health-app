@@ -31,3 +31,32 @@ class ExperimentalServingTest(unittest.TestCase):
         self.assertEqual(old['primary_model'], 'v1')
         fallback = predict_current(self.f, 'fixture', history_loader=lambda u:self.h.iloc[:2], **kwargs)
         self.assertEqual(fallback['selection_reason'], 'v2_unavailable')
+
+    def test_independent_calendar_horizons_have_distinct_pair_counts_and_ids(self):
+        result = predict_experimental(self.f, self.h, '2026-01-30')
+        points = result['trajectory']
+        self.assertEqual([p['horizon_days'] for p in points], [1, 3, 7, 14])
+        self.assertEqual([p['training_pairs'] for p in points], [28, 26, 22, 15])
+        self.assertEqual(len({p['model_version'] for p in points}), 4)
+        for point in points:
+            self.assertEqual(pd.Timestamp(point['target_date']), pd.Timestamp('2026-01-30') + pd.Timedelta(days=point['horizon_days']))
+            self.assertIsNone(point['uncertainty'])
+            self.assertIsNone(point['confidence'])
+
+    def test_short_history_only_withholds_unsupported_horizons(self):
+        result = predict_experimental({'date':'2026-01-10', 'sentiment_today':.2}, self.h, '2026-01-10')
+        self.assertEqual([p['status'] for p in result['trajectory']], ['available', 'available', 'unavailable', 'unavailable'])
+        for point in result['trajectory'][2:]:
+            self.assertIsNone(point['predicted_mood'])
+
+    def test_future_values_cannot_change_any_horizon(self):
+        original = predict_experimental(self.f, self.h, '2026-01-30')['trajectory']
+        altered = self.h.copy()
+        altered.loc[29, 'sentiment_today'] = -.99
+        self.assertEqual(original, predict_experimental(self.f, altered, '2026-01-30')['trajectory'])
+
+    def test_gaps_do_not_count_as_elapsed_rows(self):
+        history = self.h.copy()
+        history['date'] = pd.date_range('2026-01-01', periods=30, freq='3D')
+        with self.assertRaises(InsufficientEvidence):
+            predict_experimental({'date':'2026-04-01', 'sentiment_today':.2}, history, '2026-04-01')

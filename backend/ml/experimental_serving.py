@@ -12,7 +12,8 @@ from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-VERSION = 'v2-experimental-ridge-1'
+VERSION = 'v2-experimental-ridge-multihorizon-1'
+HORIZONS = (1, 3, 7, 14)
 FEATURES = ('sentiment_today', 'sleep_hours', 'sleep_efficiency', 'resting_hr',
             'hrv_rmssd', 'recovery_score', 'strain', 'audio_positive_ratio',
             'audio_negative_ratio', 'audio_anxious_ratio', 'audio_calm_ratio',
@@ -22,7 +23,7 @@ class InsufficientEvidence(ValueError):
     pass
 
 
-def predict_experimental(features, history, issue_date):
+def _predict_horizon(features, history, issue_date, horizon):
     day = pd.Timestamp(issue_date).normalize()
     if pd.isna(day) or day.tz is not None:
         raise InsufficientEvidence('invalid_issue_date')
@@ -41,7 +42,7 @@ def predict_experimental(features, history, issue_date):
     y = pd.to_numeric(h.sentiment_today, errors='coerce')
     h['sentiment_today'] = y.where(y.between(-1, 1))
     scores = h.set_index('date').sentiment_today
-    h['target_date'] = h.date + pd.Timedelta(days=1)
+    h['target_date'] = h.date + pd.Timedelta(days=horizon)
     h['target'] = h.target_date.map(scores)
     h = h.loc[h.target_date < day].dropna(subset=['sentiment_today', 'target']).tail(180)
     if len(h) < 6:
@@ -63,7 +64,7 @@ def predict_experimental(features, history, issue_date):
     prediction = float(np.clip(model.predict(now[cols])[0], -1, 1))
     fingerprint = hashlib.sha256(pd.util.hash_pandas_object(
         pd.concat([h[['date', 'target']], x[cols]], axis=1), index=False).values.tobytes()).hexdigest()[:16]
-    version = f'{VERSION}-{fingerprint}'
+    version = f'{VERSION}-h{horizon}-{fingerprint}'
     available = ['journal']
     if any(c in cols for c in FEATURES[1:7]): available.append('biometric')
     if any(c.startswith('audio_') for c in cols): available.append('audio')
@@ -71,15 +72,39 @@ def predict_experimental(features, history, issue_date):
     prediction_id = hashlib.sha256(json.dumps({'model': version, 'day': str(day.date()), 'features': now[cols].iloc[0].to_dict()}, sort_keys=True).encode()).hexdigest()
     return {'prediction_id': prediction_id, 'predicted_delta': prediction-float(current), 'predicted_mood': prediction,
             'confidence': 0.0, 'confidence_kind': 'unavailable_not_calibrated',
-            'uncertainty_kind': 'unavailable', 'trajectory': [],
+            'uncertainty_kind': 'unavailable', 'trajectory': [], 'horizon_days': horizon,
             'model_version': version, 'model_family': VERSION,
             'primary_model': 'v2', 'experimental': True,
             'target_definition': 'next_calendar_day_journal_sentiment',
-            'issue_date': str(day.date()), 'target_date': str((day+pd.Timedelta(days=1)).date()),
+            'issue_date': str(day.date()), 'target_date': str((day+pd.Timedelta(days=horizon)).date()),
             'training_pairs': len(h), 'used_features': cols,
             'modality_coverage': {'available_modalities': available, 'coverage_ratio': len(available)/4},
             'validation': {'sample_count': len(h), 'validation_ready': False},
-            'insight': f'Experimental next-day journal sentiment: {prediction:.2f} on a −1 to +1 scale. Based on {len(h)} prior daily pairs. This is not a validated mood assessment; uncertainty is not calibrated.'}
+            'insight': f'Experimental {horizon}-day journal sentiment: {prediction:.2f} on a −1 to +1 scale. Based on {len(h)} prior daily pairs. This is not a validated mood assessment; uncertainty is not calibrated.'}
+
+
+def predict_experimental(features, history, issue_date):
+    # Keep the existing primary next-day contract. Longer horizons never borrow
+    # the next-day fit or fabricate a forecast when their own pairs are absent.
+    primary = _predict_horizon(features, history, issue_date, 1)
+    points = []
+    for horizon in HORIZONS:
+        try:
+            result = primary if horizon == 1 else _predict_horizon(features, history, issue_date, horizon)
+            points.append({key: result[key] for key in (
+                'horizon_days', 'target_date', 'predicted_mood', 'predicted_delta',
+                'prediction_id', 'model_version', 'training_pairs', 'used_features',
+                'modality_coverage')})
+            points[-1].update(status='available', confidence=None, uncertainty=None,
+                              uncertainty_kind='unavailable')
+        except InsufficientEvidence as exc:
+            points.append({'horizon_days': horizon, 'status': 'unavailable',
+                           'target_date': str((pd.Timestamp(issue_date).normalize()+pd.Timedelta(days=horizon)).date()),
+                           'reason': str(exc), 'predicted_mood': None,
+                           'predicted_delta': None, 'confidence': None, 'uncertainty': None})
+    primary['trajectory'] = points
+    primary['trajectory_target_definition'] = 'journal_sentiment_on_exact_future_calendar_day'
+    return primary
 
 
 def load_personal_history(user_id):

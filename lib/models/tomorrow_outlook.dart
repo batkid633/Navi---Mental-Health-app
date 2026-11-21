@@ -96,10 +96,14 @@ class TomorrowOutlook {
 
 class TrajectoryPoint {
   final int horizonDays;
-  final double predictedMood;
-  final double predictedDelta;
-  final double uncertainty;
-  final double confidence;
+  final double? predictedMood;
+  final double? predictedDelta;
+  final double? uncertainty;
+  final double? confidence;
+  final String? targetDate;
+  final String? reason;
+  final int? trainingPairs;
+  final bool available;
 
   TrajectoryPoint({
     required this.horizonDays,
@@ -107,15 +111,33 @@ class TrajectoryPoint {
     required this.predictedDelta,
     required this.uncertainty,
     required this.confidence,
+    this.targetDate,
+    this.reason,
+    this.trainingPairs,
+    this.available = true,
   });
 
   factory TrajectoryPoint.fromJson(Map<dynamic, dynamic> json) {
+    double? number(String key) {
+      final value = json[key];
+      return value is num && value.isFinite ? value.toDouble() : null;
+    }
+
+    final score = number('predicted_mood');
     return TrajectoryPoint(
       horizonDays: (json['horizon_days'] as num?)?.toInt() ?? 1,
-      predictedMood: (json['predicted_mood'] as num?)?.toDouble() ?? 0.0,
-      predictedDelta: (json['predicted_delta'] as num?)?.toDouble() ?? 0.0,
-      uncertainty: (json['uncertainty'] as num?)?.toDouble() ?? 0.0,
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      predictedMood: score,
+      predictedDelta: number('predicted_delta'),
+      uncertainty: number('uncertainty'),
+      confidence: number('confidence'),
+      targetDate: json['target_date']?.toString(),
+      reason: json['reason']?.toString(),
+      trainingPairs: (json['training_pairs'] as num?)?.toInt(),
+      available:
+          json['status'] != 'unavailable' &&
+          score != null &&
+          score >= -1 &&
+          score <= 1,
     );
   }
 }

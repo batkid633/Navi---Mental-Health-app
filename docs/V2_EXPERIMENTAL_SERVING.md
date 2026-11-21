@@ -76,3 +76,42 @@ Phone behavior and prediction-linked feedback still require owner confirmation.
 - Owner must confirm a current-day V2 forecast and feedback on-device. No actual
   production-user prediction endpoint or stored participant records were queried
   during deployment verification. No Git commit/push performed.
+
+## November 20 local extension: direct 1/3/7/14-day models
+
+Implemented locally, not deployed: `v2-experimental-ridge-multihorizon-1`.
+Each horizon h has a separate median-imputation, standardization and Ridge fit
+(alpha=1). Historical predictor day t is matched to the observed sentiment on
+exactly t+h. Only outcome dates strictly before the request day are eligible.
+Each fit uses up to 180 eligible pairs and requires at least six, independently.
+That threshold permits experimentation; it is not a power or validation claim.
+
+For each horizon the minimized objective is:
+
+    sum_t (y[t+h] - b[h] - z[t]^T beta[h])^2 + sum_j beta[h,j]^2
+
+Intercepts are unpenalized. Preprocessing statistics, selected features and
+coefficients are horizon-specific. Predictions are clipped to [-1,1]; deltas
+subtract the current journal score. Longer horizons predict a specific day's
+sentiment, not an average over the intervening days. Forecasts are not recursively
+fed into another model. Neither PCA nor uncertainty calibration is introduced.
+
+The top-level response/feedback remains next-day scoped and requires the next-day
+model to be available. Once it is available, all four trajectory slots are returned;
+unsupported longer horizons have null predictions and explicit reasons. Available
+points carry their own target date, model/prediction ID, feature coverage and pair
+count. Uncertainty/confidence are null on these points, not artificial zeros.
+Per-horizon outputs are added to the existing prediction-log snapshot locally;
+existing runtime-log durability limitations remain unchanged.
+
+Today displays the four forecast slots and pair counts. Missing results show
+Unavailable rather than neutral. This is the Today forecast strip, not the proposed
+historical holistic Insights graph. The existing feedback control still rates the
+next-day result; separate longer-horizon feedback remains future work.
+
+Validation includes exact-calendar counts, separate horizon IDs, future-outcome
+invariance, gaps, partial availability, rollback compatibility and Flutter parsing
+of null/legacy forecasts. The owner export was used for a local retrospective
+availability preview only, saved under ignored local_research_exports/. It is not
+a prospective performance comparison. No shared-server calls or deployment were
+performed for this extension; the previously deployed one-day model remains live.

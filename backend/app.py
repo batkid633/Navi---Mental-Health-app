@@ -857,7 +857,7 @@ def predict_tomorrow(req: PredictRequest, current_user: CurrentUser = Depends(ge
         insight = get_llm_insight(req.date, insight_context, current_user.uid)
 
     event["insight"] = insight
-    event["prediction_snapshot"] = {k: result.get(k) for k in ("prediction_id", "primary_model", "model_version", "target_date", "predicted_mood", "predicted_delta", "training_pairs", "used_features", "v1_shadow", "v2_unavailable_reason")}
+    event["prediction_snapshot"] = {k: result.get(k) for k in ("prediction_id", "primary_model", "model_version", "target_date", "predicted_mood", "predicted_delta", "training_pairs", "used_features", "trajectory", "v1_shadow", "v2_unavailable_reason")}
 
     log_prediction_event(event)
     log_product_event(
